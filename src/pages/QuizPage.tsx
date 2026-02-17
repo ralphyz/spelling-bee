@@ -1,0 +1,165 @@
+import { useState, useCallback, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
+import { motion } from 'motion/react'
+import { useApp, saveSession } from '../context/AppContext'
+import { useSpacedRepetition } from '../hooks/useSpacedRepetition'
+import { useQuizSession } from '../hooks/useQuizSession'
+import { QuizPrompt } from '../components/quiz/QuizPrompt'
+import { QuizSpelling } from '../components/quiz/QuizSpelling'
+import { QuizResult } from '../components/quiz/QuizResult'
+import { QuizSummary } from '../components/quiz/QuizSummary'
+import { ProgressBar } from '../components/shared/ProgressBar'
+import { PageAvatar } from '../components/shared/PageAvatar'
+
+export function QuizPage() {
+  const { state } = useApp()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const locState = location.state as { missed?: boolean; mostMissed?: boolean } | null
+  const missed = locState?.missed === true
+  const mostMissed = locState?.mostMissed === true
+  const activeList = state.wordLists.find((l) => l.id === state.activeListId)
+  const listId = activeList?.id || ''
+  const { getSessionWords, getMissedSessionWords, getMostMissedSessionWords, recordResult } = useSpacedRepetition(state.currentUserId, listId)
+
+  const wordCount = state.settings.quizWordCount === 'all'
+    ? activeList?.words.length ?? 6
+    : Math.min(state.settings.quizWordCount, activeList?.words.length ?? 0)
+
+  const getWords = useCallback(
+    () => {
+      if (!activeList) return []
+      if (mostMissed) return getMostMissedSessionWords(activeList.words, wordCount)
+      if (missed) return getMissedSessionWords(activeList.words, wordCount)
+      return getSessionWords(activeList.words, wordCount)
+    },
+    [activeList, missed, mostMissed, getMissedSessionWords, getMostMissedSessionWords, getSessionWords, wordCount]
+  )
+
+  // Compute session words once on mount — stable during the session
+  const [sessionWords] = useState(() => getWords())
+
+  const {
+    session,
+    currentWord,
+    startSpelling,
+    typeLetter,
+    deleteLetter,
+    submit,
+    next,
+    reset,
+  } = useQuizSession(sessionWords)
+
+  const handleNext = useCallback(() => {
+    const lastResult = session.results[session.results.length - 1]
+    if (lastResult && currentWord) {
+      recordResult(currentWord.word, lastResult.correct)
+    }
+    next()
+  }, [session.results, currentWord, recordResult, next])
+
+  const savedRef = useRef(false)
+  useEffect(() => {
+    if (session.phase === 'summary' && activeList && !savedRef.current) {
+      savedRef.current = true
+      const correct = session.results.filter((r) => r.correct).length
+      const score = Math.round((correct / session.results.length) * 100)
+      saveSession({
+        id: crypto.randomUUID(),
+        date: new Date().toISOString(),
+        listId: activeList.id,
+        listName: activeList.name,
+        mode: 'quiz',
+        results: session.results,
+        score,
+        userId: state.currentUserId || undefined,
+      })
+    }
+  }, [session.phase, session.results, activeList])
+
+  if (state.users.length > 0 && !state.currentUserId) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
+        <p className="text-4xl">👤</p>
+        <p className="text-base-content/60">Pick a user from the header to start a quiz!</p>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          className="btn btn-primary rounded-2xl"
+          onClick={() => navigate('/')}
+        >
+          Go Home
+        </motion.button>
+      </div>
+    )
+  }
+
+  if (!activeList || sessionWords.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
+        <p className="text-4xl">🐝</p>
+        <p className="text-base-content/60">
+          {!activeList
+            ? 'Select a word list from the home page first.'
+            : 'All words mastered! Try Learn mode for review.'}
+        </p>
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          className="btn btn-primary rounded-2xl"
+          onClick={() => navigate('/')}
+        >
+          Go Home
+        </motion.button>
+      </div>
+    )
+  }
+
+  if (session.phase === 'summary') {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <QuizSummary
+          results={session.results}
+          onRestart={() => {
+            savedRef.current = false
+            reset(getWords())
+          }}
+          onHome={() => navigate('/')}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto space-y-4">
+      <PageAvatar pose="quiz" size="lg" />
+      <p className="text-center text-sm font-semibold text-base-content/50 tracking-wide">{activeList.name}</p>
+      <ProgressBar
+        current={session.currentIndex}
+        total={session.words.length}
+        label="Question"
+      />
+
+      {session.phase === 'prompt' && currentWord && (
+        <QuizPrompt word={currentWord} onStart={startSpelling} />
+      )}
+
+      {session.phase === 'spelling' && currentWord && (
+        <QuizSpelling
+          word={currentWord}
+          typedLetters={session.typedLetters}
+          onKey={typeLetter}
+          onDelete={deleteLetter}
+          onSubmit={submit}
+        />
+      )}
+
+      {session.phase === 'result' && currentWord && (
+        <QuizResult
+          correct={session.results[session.results.length - 1]?.correct ?? false}
+          correctWord={currentWord.word}
+          typedWord={session.typedLetters.join('')}
+          onNext={handleNext}
+        />
+      )}
+    </div>
+  )
+}

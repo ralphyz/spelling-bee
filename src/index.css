@@ -1,0 +1,292 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@plugin "daisyui/theme" {
+  name: "sb-blue";
+  default: true;
+  color-scheme: dark;
+  --color-base-100: oklch(38% 0.1 250);
+  --color-base-200: oklch(44% 0.11 250);
+  --color-base-300: oklch(50% 0.12 250);
+  --color-base-content: oklch(95% 0.015 250);
+  --color-primary: oklch(72% 0.2 255);
+  --color-primary-content: oklch(98% 0.01 255);
+  --color-secondary: oklch(60% 0.2 260);
+  --color-secondary-content: oklch(95% 0.01 260);
+  --color-accent: oklch(82% 0.14 240);
+  --color-accent-content: oklch(20% 0.03 240);
+  --color-neutral: oklch(42% 0.08 250);
+  --color-neutral-content: oklch(92% 0.015 250);
+  --color-info: oklch(75% 0.16 245);
+  --color-info-content: oklch(20% 0.03 245);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-purple";
+  color-scheme: dark;
+  --color-base-100: oklch(36% 0.12 290);
+  --color-base-200: oklch(42% 0.13 290);
+  --color-base-300: oklch(48% 0.14 290);
+  --color-base-content: oklch(95% 0.015 290);
+  --color-primary: oklch(70% 0.22 290);
+  --color-primary-content: oklch(98% 0.01 290);
+  --color-secondary: oklch(60% 0.22 300);
+  --color-secondary-content: oklch(95% 0.01 300);
+  --color-accent: oklch(82% 0.16 280);
+  --color-accent-content: oklch(20% 0.03 280);
+  --color-neutral: oklch(40% 0.09 290);
+  --color-neutral-content: oklch(92% 0.015 290);
+  --color-info: oklch(73% 0.18 285);
+  --color-info-content: oklch(20% 0.03 285);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-pink";
+  color-scheme: dark;
+  --color-base-100: oklch(38% 0.12 340);
+  --color-base-200: oklch(44% 0.13 340);
+  --color-base-300: oklch(50% 0.14 340);
+  --color-base-content: oklch(95% 0.015 340);
+  --color-primary: oklch(72% 0.22 345);
+  --color-primary-content: oklch(98% 0.01 345);
+  --color-secondary: oklch(60% 0.22 350);
+  --color-secondary-content: oklch(95% 0.01 350);
+  --color-accent: oklch(84% 0.14 330);
+  --color-accent-content: oklch(20% 0.03 330);
+  --color-neutral: oklch(42% 0.09 340);
+  --color-neutral-content: oklch(92% 0.015 340);
+  --color-info: oklch(75% 0.18 340);
+  --color-info-content: oklch(20% 0.03 340);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(68% 0.22 15);
+  --color-error-content: oklch(95% 0.02 15);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-lavender";
+  color-scheme: dark;
+  --color-base-100: oklch(38% 0.1 305);
+  --color-base-200: oklch(44% 0.11 305);
+  --color-base-300: oklch(50% 0.12 305);
+  --color-base-content: oklch(95% 0.015 305);
+  --color-primary: oklch(75% 0.16 300);
+  --color-primary-content: oklch(98% 0.01 300);
+  --color-secondary: oklch(64% 0.18 310);
+  --color-secondary-content: oklch(95% 0.01 310);
+  --color-accent: oklch(85% 0.12 295);
+  --color-accent-content: oklch(20% 0.03 295);
+  --color-neutral: oklch(42% 0.08 305);
+  --color-neutral-content: oklch(92% 0.015 305);
+  --color-info: oklch(76% 0.15 300);
+  --color-info-content: oklch(20% 0.03 300);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-red";
+  color-scheme: dark;
+  --color-base-100: oklch(37% 0.12 20);
+  --color-base-200: oklch(43% 0.13 20);
+  --color-base-300: oklch(49% 0.14 20);
+  --color-base-content: oklch(95% 0.015 20);
+  --color-primary: oklch(68% 0.22 25);
+  --color-primary-content: oklch(98% 0.01 25);
+  --color-secondary: oklch(56% 0.2 15);
+  --color-secondary-content: oklch(95% 0.01 15);
+  --color-accent: oklch(80% 0.14 30);
+  --color-accent-content: oklch(20% 0.03 30);
+  --color-neutral: oklch(41% 0.09 20);
+  --color-neutral-content: oklch(92% 0.015 20);
+  --color-info: oklch(72% 0.18 35);
+  --color-info-content: oklch(20% 0.03 35);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(74% 0.2 20);
+  --color-error-content: oklch(95% 0.02 20);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-orange";
+  color-scheme: dark;
+  --color-base-100: oklch(39% 0.1 55);
+  --color-base-200: oklch(45% 0.11 55);
+  --color-base-300: oklch(51% 0.12 55);
+  --color-base-content: oklch(95% 0.015 55);
+  --color-primary: oklch(76% 0.18 55);
+  --color-primary-content: oklch(98% 0.01 55);
+  --color-secondary: oklch(64% 0.18 45);
+  --color-secondary-content: oklch(95% 0.01 45);
+  --color-accent: oklch(85% 0.13 65);
+  --color-accent-content: oklch(20% 0.03 65);
+  --color-neutral: oklch(43% 0.08 55);
+  --color-neutral-content: oklch(92% 0.015 55);
+  --color-info: oklch(78% 0.16 55);
+  --color-info-content: oklch(20% 0.03 55);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(85% 0.16 80);
+  --color-warning-content: oklch(22% 0.04 80);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-green";
+  color-scheme: dark;
+  --color-base-100: oklch(37% 0.1 155);
+  --color-base-200: oklch(43% 0.11 155);
+  --color-base-300: oklch(49% 0.12 155);
+  --color-base-content: oklch(95% 0.015 155);
+  --color-primary: oklch(72% 0.2 155);
+  --color-primary-content: oklch(98% 0.01 155);
+  --color-secondary: oklch(60% 0.18 165);
+  --color-secondary-content: oklch(95% 0.01 165);
+  --color-accent: oklch(84% 0.14 145);
+  --color-accent-content: oklch(20% 0.03 145);
+  --color-neutral: oklch(41% 0.08 155);
+  --color-neutral-content: oklch(92% 0.015 155);
+  --color-info: oklch(75% 0.17 155);
+  --color-info-content: oklch(20% 0.03 155);
+  --color-success: oklch(76% 0.19 150);
+  --color-success-content: oklch(20% 0.03 150);
+  --color-warning: oklch(85% 0.16 85);
+  --color-warning-content: oklch(22% 0.04 85);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+@plugin "daisyui/theme" {
+  name: "sb-yellow";
+  color-scheme: dark;
+  --color-base-100: oklch(40% 0.09 85);
+  --color-base-200: oklch(46% 0.1 85);
+  --color-base-300: oklch(52% 0.11 85);
+  --color-base-content: oklch(95% 0.015 85);
+  --color-primary: oklch(84% 0.17 90);
+  --color-primary-content: oklch(22% 0.04 90);
+  --color-secondary: oklch(70% 0.16 80);
+  --color-secondary-content: oklch(95% 0.01 80);
+  --color-accent: oklch(90% 0.14 95);
+  --color-accent-content: oklch(22% 0.04 95);
+  --color-neutral: oklch(44% 0.07 85);
+  --color-neutral-content: oklch(92% 0.015 85);
+  --color-info: oklch(86% 0.15 90);
+  --color-info-content: oklch(22% 0.04 90);
+  --color-success: oklch(75% 0.19 155);
+  --color-success-content: oklch(20% 0.03 155);
+  --color-warning: oklch(88% 0.15 90);
+  --color-warning-content: oklch(22% 0.04 90);
+  --color-error: oklch(68% 0.22 25);
+  --color-error-content: oklch(95% 0.02 25);
+  --radius-selector: 1rem;
+  --radius-field: 0.75rem;
+  --radius-box: 1rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+* {
+  font-family: 'Fredoka', sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+html, body, #root {
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
