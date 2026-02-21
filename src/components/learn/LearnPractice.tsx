@@ -1,7 +1,10 @@
+import { useState, useCallback } from 'react'
 import { motion } from 'motion/react'
 import { AlphabetKeyboard } from '../shared/AlphabetKeyboard'
 import { LetterTileRow } from '../shared/LetterTileRow'
 import { AudioButton } from '../shared/AudioButton'
+import { useApp } from '../../context/AppContext'
+import { incrementPeek } from '../../utils/mishchievements'
 import type { WordEntry } from '../../types'
 
 interface LearnPracticeProps {
@@ -9,6 +12,7 @@ interface LearnPracticeProps {
   typedLetters: string[]
   onKey: (letter: string) => void
   onDelete: () => void
+  onRemove: (index: number) => void
   onSubmit: () => void
 }
 
@@ -17,8 +21,20 @@ export function LearnPractice({
   typedLetters,
   onKey,
   onDelete,
+  onRemove,
   onSubmit,
 }: LearnPracticeProps) {
+  const { state } = useApp()
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const highlightMode = currentUser?.highlightModes?.learn ?? false
+  const [peeking, setPeeking] = useState(false)
+
+  const startPeek = useCallback(() => {
+    setPeeking(true)
+    incrementPeek(state.currentUserId)
+  }, [state.currentUserId])
+  const stopPeek = useCallback(() => setPeeking(false), [])
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 40 }}
@@ -29,21 +45,39 @@ export function LearnPractice({
         <p className="text-lg text-base-content/70 mb-2">
           Now spell it from memory!
         </p>
-        <div className="flex items-center justify-center gap-2">
-          <AudioButton word={word.word} audioUrl={word.audioUrl} size="lg" />
-          {word.definition && (
-            <div className="tooltip tooltip-bottom" data-tip={word.definition}>
-              <button className="btn btn-ghost btn-circle btn-sm text-base-content/40">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-                </svg>
-              </button>
-            </div>
+        <AudioButton word={word.word} audioUrl={word.audioUrl} size="lg" />
+        {word.definition && (
+          <p className="text-sm text-base-content/60 px-4">{word.definition}</p>
+        )}
+        <div className="mt-2">
+          {peeking ? (
+            <p className="text-2xl font-bold text-primary">{word.word}</p>
+          ) : (
+            <p className="text-2xl font-bold text-transparent select-none">
+              {word.word.replace(/./g, '•')}
+            </p>
           )}
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            className="btn btn-outline btn-sm rounded-xl mt-1 select-none touch-none"
+            onMouseDown={startPeek}
+            onMouseUp={stopPeek}
+            onMouseLeave={stopPeek}
+            onTouchStart={startPeek}
+            onTouchEnd={stopPeek}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            👀 Peek
+          </motion.button>
         </div>
       </div>
 
-      <LetterTileRow letters={typedLetters} />
+      <LetterTileRow
+        letters={typedLetters}
+        correctWord={highlightMode ? word.word : undefined}
+        showFeedback={highlightMode}
+        onRemove={onRemove}
+      />
 
       <AlphabetKeyboard
         onKey={onKey}

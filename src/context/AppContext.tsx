@@ -180,6 +180,18 @@ function reducer(state: AppState, action: AppAction): AppState {
       }
     }
 
+    case 'TOGGLE_SHOW_ARCHIVED': {
+      const { userId } = action.payload
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === userId
+            ? { ...u, showArchived: !u.showArchived }
+            : u
+        ),
+      }
+    }
+
     case 'SET_LIST_SORT': {
       const { userId, sortBy, sortDir } = action.payload
       return {
@@ -189,6 +201,47 @@ function reducer(state: AppState, action: AppAction): AppState {
             ? { ...u, listSortBy: sortBy, listSortDir: sortDir }
             : u
         ),
+      }
+    }
+
+    case 'SET_KEYBOARD_SCALE': {
+      const { userId, scale } = action.payload
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === userId ? { ...u, keyboardScale: scale } : u
+        ),
+      }
+    }
+
+    case 'SET_WORD_COUNTS': {
+      const { userId, learnWordCount, quizWordCount, practiceWordCount, missingLettersWordCount } = action.payload
+      return {
+        ...state,
+        users: state.users.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                ...(learnWordCount !== undefined && { learnWordCount }),
+                ...(quizWordCount !== undefined && { quizWordCount }),
+                ...(practiceWordCount !== undefined && { practiceWordCount }),
+                ...(missingLettersWordCount !== undefined && { missingLettersWordCount }),
+              }
+            : u
+        ),
+      }
+    }
+
+    case 'TOGGLE_HIGHLIGHT_MODE': {
+      const { userId, activity } = action.payload
+      return {
+        ...state,
+        users: state.users.map((u) => {
+          if (u.id !== userId) return u
+          const modes = { ...u.highlightModes }
+          modes[activity] = !modes[activity]
+          return { ...u, highlightModes: modes }
+        }),
       }
     }
 
@@ -277,11 +330,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const initialized = useRef(false)
   const skipSync = useRef(false)
+  const serverHadData = useRef(false)
 
   // Load state from server on mount
   useEffect(() => {
     fetchState().then((loaded) => {
       if (loaded && loaded.wordLists.length > 0) {
+        serverHadData.current = true
         skipSync.current = true
         dispatch({ type: 'LOAD_STATE', payload: loaded })
       }
@@ -296,6 +351,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       skipSync.current = false
       return
     }
+    // Safety: never overwrite server data with empty state
+    if (serverHadData.current && state.wordLists.length === 0) return
     pushState(state)
   }, [state])
 

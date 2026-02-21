@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { AudioButton } from '../shared/AudioButton'
+import { maskWordInText } from '../../utils/maskWord'
 import type { WordEntry } from '../../types'
 
 interface QuizPromptProps {
@@ -9,7 +10,6 @@ interface QuizPromptProps {
 }
 
 export function QuizPrompt({ word, onStart }: QuizPromptProps) {
-  const [showDef, setShowDef] = useState(false)
   const [showPos, setShowPos] = useState(false)
   const [showExample, setShowExample] = useState(false)
 
@@ -30,16 +30,13 @@ export function QuizPrompt({ word, onStart }: QuizPromptProps) {
         label="Hear the word"
       />
 
+      {word.definition && (
+        <p className="text-base-content/80 bg-base-200 p-3 rounded-xl">
+          {word.definition}
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-2 justify-center">
-        {word.definition && (
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            className="btn btn-outline btn-sm rounded-xl"
-            onClick={() => setShowDef(!showDef)}
-          >
-            {showDef ? 'Hide' : 'Show'} Definition
-          </motion.button>
-        )}
         {word.partOfSpeech && (
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -60,15 +57,6 @@ export function QuizPrompt({ word, onStart }: QuizPromptProps) {
         )}
       </div>
 
-      {showDef && (
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="text-base-content/80 bg-base-200 p-3 rounded-xl"
-        >
-          {word.definition}
-        </motion.p>
-      )}
       {showPos && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
           <span className="badge badge-secondary badge-lg">
@@ -82,7 +70,7 @@ export function QuizPrompt({ word, onStart }: QuizPromptProps) {
           animate={{ opacity: 1 }}
           className="text-base-content/60 italic bg-base-200 p-3 rounded-xl"
         >
-          "{word.example}"
+          "{maskWordInText(word.example, word.word)}"
         </motion.p>
       )}
 

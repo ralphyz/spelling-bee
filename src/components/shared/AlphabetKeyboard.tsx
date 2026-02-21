@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useSound } from '../../hooks/useSound'
 import { useApp } from '../../context/AppContext'
+import { incrementDeletes } from '../../utils/mishchievements'
 
 const rows = [
   'qwertyuiop'.split(''),
@@ -24,10 +25,11 @@ export function AlphabetKeyboard({
   submitLabel = "I'm Done!",
   disabled = false,
 }: AlphabetKeyboardProps) {
-  const { tapSound } = useSound()
+  const { tapSound, deleteSound } = useSound()
   const { state } = useApp()
   const [shifted, setShifted] = useState(false)
-  const scale = state.settings.keyboardScale ?? 1
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const scale = currentUser?.keyboardScale ?? 1
 
   const keyH = Math.round(52 * scale)
   const keyW = `${9 * scale}vw`
@@ -45,7 +47,8 @@ export function AlphabetKeyboard({
 
   const handleDelete = () => {
     if (disabled) return
-    tapSound()
+    deleteSound()
+    incrementDeletes(state.currentUserId)
     onDelete()
   }
 

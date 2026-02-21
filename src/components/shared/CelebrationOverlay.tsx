@@ -1,5 +1,5 @@
 import { motion } from 'motion/react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useSound } from '../../hooks/useSound'
 
 interface CelebrationOverlayProps {
@@ -15,12 +15,27 @@ const confettiPieces = Array.from({ length: 20 }, (_, i) => ({
 
 export function CelebrationOverlay({ onDone }: CelebrationOverlayProps) {
   const { correctSound } = useSound()
+  const firedRef = useRef(false)
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
 
   useEffect(() => {
     correctSound()
-    const timer = setTimeout(onDone, 2500)
+    const timer = setTimeout(() => {
+      if (!firedRef.current) {
+        firedRef.current = true
+        onDoneRef.current()
+      }
+    }, 2500)
     return () => clearTimeout(timer)
-  }, [onDone, correctSound])
+  }, [correctSound])
+
+  const handleClick = () => {
+    if (!firedRef.current) {
+      firedRef.current = true
+      onDoneRef.current()
+    }
+  }
 
   return (
     <motion.div
@@ -28,7 +43,7 @@ export function CelebrationOverlay({ onDone }: CelebrationOverlayProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/30"
-      onClick={onDone}
+      onClick={handleClick}
     >
       {confettiPieces.map((piece) => (
         <motion.span

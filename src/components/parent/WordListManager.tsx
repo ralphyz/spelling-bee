@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useApp } from '../../context/AppContext'
+import { useSpeech } from '../../hooks/useSpeech'
+import { fetchWordData } from '../../utils/audioUtils'
 import type { WordList, WordEntry } from '../../types'
 
 export function WordListManager() {
@@ -8,6 +10,12 @@ export function WordListManager() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [loadingIdx, setLoadingIdx] = useState<number | null>(null)
+  const [editingDefIdx, setEditingDefIdx] = useState<number | null>(null)
+  const [editDefValue, setEditDefValue] = useState('')
+  const [backfilling, setBackfilling] = useState<string | null>(null)
+  const [backfillProgress, setBackfillProgress] = useState(0)
+  const { speak } = useSpeech()
 
   const handleDelete = (list: WordList) => {
     if (confirm(`Delete "${list.name}"?`)) {
@@ -32,17 +40,38 @@ export function WordListManager() {
     setEditValue(word.word)
   }
 
-  const handleSaveEdit = (list: WordList, idx: number) => {
+  const handleSaveEdit = async (list: WordList, idx: number) => {
     const trimmed = editValue.trim()
     if (!trimmed || trimmed === list.words[idx].word) {
       setEditingIdx(null)
       return
     }
+    setLoadingIdx(idx)
+    const data = await fetchWordData(trimmed)
     const updatedWords = list.words.map((w, i) =>
-      i === idx ? { ...w, word: trimmed } : w
+      i === idx ? { word: trimmed, ...data } : w
     )
     dispatch({ type: 'UPDATE_LIST', payload: { ...list, words: updatedWords, updatedAt: Date.now() } })
+    setLoadingIdx(null)
     setEditingIdx(null)
+  }
+
+  const handleStartDefEdit = (word: WordEntry, idx: number) => {
+    setEditingDefIdx(idx)
+    setEditDefValue(word.definition || '')
+  }
+
+  const handleSaveDefEdit = (list: WordList, idx: number) => {
+    const trimmed = editDefValue.trim()
+    if (trimmed === (list.words[idx].definition || '')) {
+      setEditingDefIdx(null)
+      return
+    }
+    const updatedWords = list.words.map((w, i) =>
+      i === idx ? { ...w, definition: trimmed } : w
+    )
+    dispatch({ type: 'UPDATE_LIST', payload: { ...list, words: updatedWords, updatedAt: Date.now() } })
+    setEditingDefIdx(null)
   }
 
   const handleDedup = (list: WordList) => {
@@ -57,6 +86,53 @@ export function WordListManager() {
     }
     if (deduped.length === list.words.length) return
     dispatch({ type: 'UPDATE_LIST', payload: { ...list, words: deduped, updatedAt: Date.now() } })
+  }
+
+  const getMissingDefCount = (list: WordList) =>
+    list.words.filter((w) => !w.definition).length
+
+  const handleBackfillDefinitions = async (list: WordList) => {
+    const missing = list.words.filter((w) => !w.definition)
+    if (missing.length === 0) return
+    setBackfilling(list.id)
+    setBackfillProgress(0)
+
+    const updatedWords = [...list.words]
+    let filled = 0
+    for (let i = 0; i < updatedWords.length; i++) {
+      if (updatedWords[i].definition) continue
+      const data = await fetchWordData(updatedWords[i].word)
+      if (data.definition) {
+        updatedWords[i] = { ...updatedWords[i], ...data }
+      }
+      filled++
+      setBackfillProgress(Math.round((filled / missing.length) * 100))
+      if (filled < missing.length) {
+        await new Promise((r) => setTimeout(r, 200))
+      }
+    }
+
+    dispatch({ type: 'UPDATE_LIST', payload: { ...list, words: updatedWords, updatedAt: Date.now() } })
+    setBackfilling(null)
+  }
+
+  const handleRefreshDefinitions = async (list: WordList) => {
+    if (list.words.length === 0) return
+    setBackfilling(list.id)
+    setBackfillProgress(0)
+
+    const updatedWords = [...list.words]
+    for (let i = 0; i < updatedWords.length; i++) {
+      const data = await fetchWordData(updatedWords[i].word)
+      updatedWords[i] = { ...updatedWords[i], ...data }
+      setBackfillProgress(Math.round(((i + 1) / updatedWords.length) * 100))
+      if (i < updatedWords.length - 1) {
+        await new Promise((r) => setTimeout(r, 200))
+      }
+    }
+
+    dispatch({ type: 'UPDATE_LIST', payload: { ...list, words: updatedWords, updatedAt: Date.now() } })
+    setBackfilling(null)
   }
 
   const getDupCount = (list: WordList) => {
@@ -85,6 +161,8 @@ export function WordListManager() {
       {state.wordLists.map((list) => {
         const expanded = expandedId === list.id
         const dupCount = getDupCount(list)
+        const missingDefs = getMissingDefCount(list)
+        const isBackfilling = backfilling === list.id
 
         return (
           <motion.div
@@ -108,10 +186,26 @@ export function WordListManager() {
                 <div className="flex gap-1">
                   <motion.button
                     whileTap={{ scale: 0.9 }}
+                    className={`btn btn-sm btn-ghost btn-circle ${isBackfilling ? 'text-primary' : 'text-base-content/40 hover:text-primary'}`}
+                    onClick={() => handleRefreshDefinitions(list)}
+                    disabled={isBackfilling}
+                    aria-label={`Refresh definitions for ${list.name}`}
+                  >
+                    {isBackfilling ? (
+                      <span className="loading loading-spinner loading-xs" />
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.992 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182M20.016 4.656v4.992" />
+                      </svg>
+                    )}
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
                     className={`btn btn-sm btn-ghost btn-circle ${expanded ? 'text-primary' : 'text-base-content/40'}`}
                     onClick={() => {
                       setExpandedId(expanded ? null : list.id)
                       setEditingIdx(null)
+                      setEditingDefIdx(null)
                     }}
                     aria-label={`Edit ${list.name}`}
                   >
@@ -139,6 +233,26 @@ export function WordListManager() {
                 <span className="text-xs text-base-content/60">Practice before quiz</span>
               </label>
 
+              {isBackfilling && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-base-content/60">
+                    <span className="loading loading-spinner loading-xs mr-1" />
+                    Refreshing... {backfillProgress}%
+                  </span>
+                </div>
+              )}
+
+              {!isBackfilling && missingDefs > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    className="btn btn-xs btn-outline btn-warning"
+                    onClick={() => handleBackfillDefinitions(list)}
+                  >
+                    Fix {missingDefs} missing definition{missingDefs !== 1 ? 's' : ''}
+                  </button>
+                </div>
+              )}
+
               <AnimatePresence>
                 {expanded && (
                   <motion.div
@@ -157,53 +271,112 @@ export function WordListManager() {
                     )}
                     <div className="space-y-1">
                       {list.words.map((w, idx) => (
-                        <div key={`${w.word}-${idx}`} className="flex items-center gap-2 bg-base-100 rounded-lg px-3 py-1.5">
-                          {editingIdx === idx ? (
-                            <>
-                              <input
-                                type="text"
-                                className="input input-xs input-bordered flex-1"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') handleSaveEdit(list, idx)
-                                  if (e.key === 'Escape') setEditingIdx(null)
-                                }}
-                                autoFocus
-                              />
-                              <button
-                                className="btn btn-xs btn-success btn-circle"
-                                onClick={() => handleSaveEdit(list, idx)}
-                              >
-                                ✓
-                              </button>
-                              <button
-                                className="btn btn-xs btn-ghost btn-circle"
-                                onClick={() => setEditingIdx(null)}
-                              >
-                                ✕
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <span className="flex-1 text-sm">{w.word}</span>
-                              <button
-                                className="btn btn-xs btn-ghost btn-circle text-base-content/30 hover:text-base-content/60"
-                                onClick={() => handleStartEdit(w, idx)}
-                                aria-label={`Edit ${w.word}`}
-                              >
-                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
-                                </svg>
-                              </button>
-                              <button
-                                className="btn btn-xs btn-ghost btn-circle text-base-content/30 hover:text-error"
-                                onClick={() => handleRemoveWord(list, idx)}
-                                aria-label={`Remove ${w.word}`}
-                              >
-                                ✕
-                              </button>
-                            </>
+                        <div key={`${w.word}-${idx}`} className={`bg-base-100 rounded-lg px-3 py-1.5 ${!w.definition ? 'border-l-2 border-warning' : ''}`}>
+                          <div className="flex items-center gap-2">
+                            {editingIdx === idx ? (
+                              <>
+                                <input
+                                  type="text"
+                                  className="input input-xs input-bordered flex-1"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSaveEdit(list, idx)
+                                    if (e.key === 'Escape' && loadingIdx === null) setEditingIdx(null)
+                                  }}
+                                  disabled={loadingIdx === idx}
+                                  autoFocus
+                                />
+                                {loadingIdx === idx ? (
+                                  <span className="loading loading-spinner loading-xs" />
+                                ) : (
+                                  <>
+                                    <button
+                                      className="btn btn-xs btn-success btn-circle"
+                                      onClick={() => handleSaveEdit(list, idx)}
+                                    >
+                                      ✓
+                                    </button>
+                                    <button
+                                      className="btn btn-xs btn-ghost btn-circle"
+                                      onClick={() => setEditingIdx(null)}
+                                    >
+                                      ✕
+                                    </button>
+                                  </>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  className="btn btn-xs btn-ghost btn-circle text-primary/50 hover:text-primary"
+                                  onClick={() => speak(w.word, w.audioUrl)}
+                                  aria-label={`Play ${w.word}`}
+                                >
+                                  🔊
+                                </button>
+                                <span className="flex-1 text-sm font-medium">{w.word}</span>
+                                {!w.definition && (
+                                  <span className="text-warning text-xs">no def</span>
+                                )}
+                                <button
+                                  className="btn btn-xs btn-ghost btn-circle text-base-content/30 hover:text-base-content/60"
+                                  onClick={() => handleStartEdit(w, idx)}
+                                  aria-label={`Edit ${w.word}`}
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+                                  </svg>
+                                </button>
+                                <button
+                                  className="btn btn-xs btn-ghost btn-circle text-base-content/30 hover:text-error"
+                                  onClick={() => handleRemoveWord(list, idx)}
+                                  aria-label={`Remove ${w.word}`}
+                                >
+                                  ✕
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          {editingIdx !== idx && (
+                            <div className="flex items-start gap-1 mt-0.5">
+                              {editingDefIdx === idx ? (
+                                <div className="flex items-center gap-1 flex-1">
+                                  <input
+                                    type="text"
+                                    className="input input-xs input-bordered flex-1"
+                                    value={editDefValue}
+                                    onChange={(e) => setEditDefValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveDefEdit(list, idx)
+                                      if (e.key === 'Escape') setEditingDefIdx(null)
+                                    }}
+                                    placeholder="Enter definition..."
+                                    autoFocus
+                                  />
+                                  <button
+                                    className="btn btn-xs btn-success btn-circle"
+                                    onClick={() => handleSaveDefEdit(list, idx)}
+                                  >
+                                    ✓
+                                  </button>
+                                  <button
+                                    className="btn btn-xs btn-ghost btn-circle"
+                                    onClick={() => setEditingDefIdx(null)}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  className={`text-xs text-left flex-1 hover:underline cursor-pointer ${w.definition ? 'text-base-content/50' : 'text-warning/70 italic'}`}
+                                  onClick={() => handleStartDefEdit(w, idx)}
+                                  aria-label={`Edit definition for ${w.word}`}
+                                >
+                                  {w.definition || 'tap to add definition'}
+                                </button>
+                              )}
+                            </div>
                           )}
                         </div>
                       ))}

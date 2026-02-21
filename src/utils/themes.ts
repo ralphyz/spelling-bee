@@ -21,7 +21,16 @@ export const AVATARS = [
   { id: 'chess-queen', src: '/avatars/chess-queen.png', label: 'Queen' },
   { id: 'chess-knight', src: '/avatars/chess-knight.png', label: 'Knight' },
   { id: 'chess-rook', src: '/avatars/chess-rook.png', label: 'Rook' },
+  // sports
+  { id: 'basketball', src: '/avatars/basketball.png', label: 'Basketball' },
+  { id: 'baseball', src: '/avatars/baseball.png', label: 'Baseball' },
+  { id: 'football', src: '/avatars/football.png', label: 'Football' },
+  { id: 'volleyball', src: '/avatars/volleyball.png', label: 'Volleyball' },
+  // animals
+  { id: 'spelling-bee', src: '/avatars/spelling-bee.png', label: 'Spelling Bee' },
+  { id: 'buffalo', src: '/avatars/buffalo.png', label: 'Buffalo' },
   // people
+  { id: 'girl-straight-hair', src: '/avatars/girl-straight-hair.png', label: 'Girl' },
   { id: 'karate-girl', src: '/avatars/karate-girl.png', label: 'Karate Girl' },
   { id: 'girl-brown', src: '/avatars/girl-brown.png', label: 'Girl' },
   { id: 'girl-blonde', src: '/avatars/girl-blonde.png', label: 'Girl' },
@@ -33,7 +42,10 @@ export const AVATARS = [
   { id: 'fire', src: '/avatars/fire.png', label: 'Fire' },
   { id: 'cat', src: '/avatars/cat.png', label: 'Cat' },
   { id: 'tools', src: '/avatars/tools.png', label: 'Tools' },
-  { id: 'bbq-ribs', src: '/avatars/bbq-ribs.png', label: 'BBQ Ribs' },
+  { id: 'bbq-steak', src: '/avatars/bbq-steak.png', label: 'Steak' },
+  { id: 'bbq-steak-rare', src: '/avatars/bbq-steak-rare.png', label: 'Steak Rare' },
+  { id: 'bbq-steak-medium', src: '/avatars/bbq-steak-medium.png', label: 'Steak Medium' },
+  { id: 'bbq-steak-well', src: '/avatars/bbq-steak-well.png', label: 'Steak Well Done' },
   { id: 'cross', src: '/avatars/cross.png', label: 'Cross' },
   { id: 'wednesday', src: '/avatars/wednesday.png', label: 'Wednesday' },
   { id: 'dewalt', src: '/avatars/dewalt.png', label: 'DeWalt' },

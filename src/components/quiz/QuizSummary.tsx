@@ -1,13 +1,16 @@
 import { motion } from 'motion/react'
 import type { QuizResult as QuizResultType } from '../../types'
+import type { AchievementDef } from '../../utils/achievements'
+import type { MischievementDef } from '../../utils/mishchievements'
 
 interface QuizSummaryProps {
   results: QuizResultType[]
-  onRestart: () => void
   onHome: () => void
+  newAchievements?: AchievementDef[]
+  newMischievements?: MischievementDef[]
 }
 
-export function QuizSummary({ results, onRestart, onHome }: QuizSummaryProps) {
+export function QuizSummary({ results, onHome, newAchievements, newMischievements }: QuizSummaryProps) {
   const correct = results.filter((r) => r.correct).length
   const total = results.length
   const pct = total > 0 ? Math.round((correct / total) * 100) : 0
@@ -49,22 +52,61 @@ export function QuizSummary({ results, onRestart, onHome }: QuizSummaryProps) {
         ))}
       </div>
 
-      <div className="flex gap-3 justify-center">
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          className="btn btn-primary btn-lg rounded-2xl"
-          onClick={onRestart}
+      {newAchievements && newAchievements.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: results.length * 0.1 + 0.3, type: 'spring' }}
+          className="card bg-warning/10 border-2 border-warning shadow-lg max-w-sm mx-auto"
         >
-          Try Again
-        </motion.button>
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          className="btn btn-ghost btn-lg rounded-2xl"
-          onClick={onHome}
+          <div className="card-body p-4 gap-2 text-center">
+            <p className="font-bold text-warning text-sm uppercase tracking-wider">
+              Achievement Unlocked!
+            </p>
+            {newAchievements.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 justify-center">
+                <span className="text-3xl">{a.emoji}</span>
+                <div className="text-left">
+                  <p className="font-bold">{a.name}</p>
+                  <p className="text-xs text-base-content/60">{a.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {newMischievements && newMischievements.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: results.length * 0.1 + 0.5, type: 'spring' }}
+          className="card bg-error/10 border-2 border-error shadow-lg max-w-sm mx-auto"
         >
-          Home
-        </motion.button>
-      </div>
+          <div className="card-body p-4 gap-2 text-center">
+            <p className="font-bold text-error text-sm uppercase tracking-wider">
+              Mischievement Unlocked!
+            </p>
+            {newMischievements.map((m) => (
+              <div key={m.id} className="flex items-center gap-3 justify-center">
+                <span className="text-3xl">{m.emoji}</span>
+                <div className="text-left">
+                  <p className="font-bold">{m.name}</p>
+                  <p className="text-xs text-base-content/60">{m.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      <motion.button
+        whileTap={{ scale: 0.95 }}
+        className="btn btn-primary btn-lg rounded-2xl"
+        onClick={onHome}
+      >
+        Home
+      </motion.button>
     </motion.div>
   )
 }

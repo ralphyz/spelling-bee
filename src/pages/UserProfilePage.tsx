@@ -3,6 +3,69 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
 import { useApp, clearSessions } from '../context/AppContext'
 import { THEMES, AVATARS, DEFAULT_THEME, applyTheme, getAvatarSrc } from '../utils/themes'
+import type { WordCountOption } from '../types'
+
+const STEPS: WordCountOption[] = [3, 5, 10, 15, 20, 25, 'all']
+
+function formatLabel(val: WordCountOption): string {
+  return val === 'all' ? 'All' : String(val)
+}
+
+function WordCountSlider({
+  label,
+  emoji,
+  value,
+  color,
+  onChange,
+}: {
+  label: string
+  emoji: string
+  value: WordCountOption
+  color: 'primary' | 'secondary'
+  onChange: (val: WordCountOption) => void
+}) {
+  const idx = STEPS.indexOf(value)
+
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-between items-center">
+        <span className="text-sm font-medium">{emoji} {label}</span>
+        <span className={`badge badge-${color} badge-sm`}>
+          {formatLabel(value)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        {STEPS.map((s, i) => {
+          const isSelected = i <= idx
+          return (
+            <button
+              key={String(s)}
+              onClick={() => onChange(s)}
+              className="flex-1 flex flex-col items-center gap-1.5"
+            >
+              <div
+                className={`w-full h-2 rounded-full transition-colors ${
+                  isSelected
+                    ? color === 'primary' ? 'bg-primary' : 'bg-secondary'
+                    : 'bg-base-300'
+                }`}
+              />
+              <span
+                className={`text-xs transition-colors ${
+                  i === idx
+                    ? 'font-bold ' + (color === 'primary' ? 'text-primary' : 'text-secondary')
+                    : 'text-base-content/40'
+                }`}
+              >
+                {formatLabel(s)}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 function generateMathChallenge() {
   const a = Math.floor(Math.random() * 20) + 1
@@ -249,6 +312,88 @@ export function UserProfilePage() {
               </button>
             ))}
           </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="card bg-base-200 border border-base-content/5"
+      >
+        <div className="card-body p-4 gap-4">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-sm text-base-content/60 uppercase tracking-wider">Keyboard Size</h3>
+            <span className="badge badge-primary badge-sm">
+              {Math.round((currentUser.keyboardScale ?? 1) * 100)}%
+            </span>
+          </div>
+          <input
+            type="range"
+            min="0.7"
+            max="1.5"
+            step="0.05"
+            value={currentUser.keyboardScale ?? 1}
+            onChange={(e) =>
+              dispatch({ type: 'SET_KEYBOARD_SCALE', payload: { userId: currentUser.id, scale: parseFloat(e.target.value) } })
+            }
+            className="range range-primary range-sm w-full"
+          />
+          <div className="flex justify-between text-xs text-base-content/40 px-0.5">
+            <span>Small</span>
+            <span>Large</span>
+          </div>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="card bg-base-200 border border-base-content/5"
+      >
+        <div className="card-body p-4 gap-5">
+          <h3 className="font-bold text-sm text-base-content/60 uppercase tracking-wider">Words Per Session</h3>
+
+          <WordCountSlider
+            label="Practice"
+            emoji="✏️"
+            value={currentUser.practiceWordCount ?? state.settings.learnWordCount}
+            color="primary"
+            onChange={(val) =>
+              dispatch({ type: 'SET_WORD_COUNTS', payload: { userId: currentUser.id, practiceWordCount: val } })
+            }
+          />
+
+          <WordCountSlider
+            label="Missing Letters"
+            emoji="🧩"
+            value={currentUser.missingLettersWordCount ?? state.settings.learnWordCount}
+            color="primary"
+            onChange={(val) =>
+              dispatch({ type: 'SET_WORD_COUNTS', payload: { userId: currentUser.id, missingLettersWordCount: val } })
+            }
+          />
+
+          <WordCountSlider
+            label="Learn"
+            emoji="📖"
+            value={currentUser.learnWordCount ?? state.settings.learnWordCount}
+            color="primary"
+            onChange={(val) =>
+              dispatch({ type: 'SET_WORD_COUNTS', payload: { userId: currentUser.id, learnWordCount: val } })
+            }
+          />
+
+          <WordCountSlider
+            label="Quiz"
+            emoji="🐝"
+            value={currentUser.quizWordCount ?? state.settings.quizWordCount}
+            color="secondary"
+            onChange={(val) =>
+              dispatch({ type: 'SET_WORD_COUNTS', payload: { userId: currentUser.id, quizWordCount: val } })
+            }
+          />
         </div>
       </motion.div>
 

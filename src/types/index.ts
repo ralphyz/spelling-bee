@@ -6,9 +6,16 @@ export interface UserProfile {
   deprioritizedLists?: string[]
   listSortBy?: 'name' | 'date' | 'wordCount'
   listSortDir?: 'asc' | 'desc'
+  keyboardScale?: number
+  learnWordCount?: WordCountOption
+  quizWordCount?: WordCountOption
+  practiceWordCount?: WordCountOption
+  missingLettersWordCount?: WordCountOption
+  highlightModes?: { practice?: boolean; learn?: boolean; quiz?: boolean; missingLetters?: boolean }
+  showArchived?: boolean
 }
 
-export type WordCountOption = 5 | 10 | 15 | 20 | 25 | 'all'
+export type WordCountOption = 3 | 5 | 10 | 15 | 20 | 25 | 'all'
 
 export type HeatmapLevels = 2 | 3 | 4 | 5
 
@@ -16,7 +23,6 @@ export interface AppSettings {
   learnWordCount: WordCountOption
   quizWordCount: WordCountOption
   heatmapLevels: HeatmapLevels
-  keyboardScale?: number
 }
 
 export interface SessionWordResult {
@@ -30,10 +36,11 @@ export interface SessionRecord {
   date: string
   listId: string
   listName: string
-  mode: 'learn' | 'quiz'
+  mode: 'learn' | 'quiz' | 'practice' | 'missingLetters' | 'highlight'
   results: SessionWordResult[]
   score: number
   userId?: string
+  highlightOn?: boolean
 }
 
 export interface WordEntry {
@@ -92,6 +99,10 @@ export type AppAction =
   | { type: 'CLEAR_USER_PROGRESS'; payload: string }
   | { type: 'TOGGLE_LIST_PRIORITY'; payload: { userId: string; listId: string } }
   | { type: 'SET_LIST_SORT'; payload: { userId: string; sortBy: 'name' | 'date' | 'wordCount'; sortDir: 'asc' | 'desc' } }
+  | { type: 'SET_KEYBOARD_SCALE'; payload: { userId: string; scale: number } }
+  | { type: 'SET_WORD_COUNTS'; payload: { userId: string; learnWordCount?: WordCountOption; quizWordCount?: WordCountOption; practiceWordCount?: WordCountOption; missingLettersWordCount?: WordCountOption } }
+  | { type: 'TOGGLE_HIGHLIGHT_MODE'; payload: { userId: string; activity: 'practice' | 'learn' | 'quiz' | 'missingLetters' } }
+  | { type: 'TOGGLE_SHOW_ARCHIVED'; payload: { userId: string } }
 
 export type LearnPhase = 'study' | 'practice' | 'feedback' | 'done'
 
@@ -101,6 +112,29 @@ export interface LearnSessionState {
   currentIndex: number
   typedLetters: string[]
   isCorrect: boolean | null
+  results: SessionWordResult[]
+  listId: string
+}
+
+export type PracticePhase = 'typing' | 'done'
+
+export interface PracticeSessionState {
+  phase: PracticePhase
+  words: WordEntry[]
+  currentIndex: number
+  typedLetters: string[]
+  results: SessionWordResult[]
+  listId: string
+}
+
+export type MissingLettersPhase = 'typing' | 'done'
+
+export interface MissingLettersSessionState {
+  phase: MissingLettersPhase
+  words: WordEntry[]
+  currentIndex: number
+  typedLetters: string[]
+  blanks: number[]
   results: SessionWordResult[]
   listId: string
 }

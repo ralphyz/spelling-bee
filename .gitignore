@@ -1,3 +1,10 @@
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+
 # Logs
 logs
 *.log
@@ -7,22 +14,42 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
-
-# App data
+# App data (user data, session history)
 data.json
 sessions.json
+*.sqlite
+*.db
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Keys and credentials
+*.pem
+*.key
+*.cert
+*.p12
+*.pfx
+*.jks
+
+# OS files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
+*~
+
+# Claude Code
+.claude/

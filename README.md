@@ -1,73 +1,231 @@
-# React + TypeScript + Vite
+# Spelling Bee
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A kid-friendly spelling practice app built for daily spelling homework and test prep. Supports multiple users, word lists, dictionary lookups with audio pronunciations, and a variety of study modes.
 
-Currently, two official plugins are available:
+Built with React 19, TypeScript, Vite 7, TailwindCSS 4, DaisyUI 5, and Bun.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+![Home Page](docs/screenshots/home.png)
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Study Modes
 
-## Expanding the ESLint configuration
+- **Practice** -- Type each word after hearing it spoken aloud. Words are selected using a spaced repetition algorithm that prioritizes words you've gotten wrong.
+- **Learn** -- Study a word (see it spelled, hear it, read the definition), then practice typing it. Get immediate feedback and retry if needed.
+- **Quiz** -- Hear the word, spell it from memory, and submit. Results are tracked toward mastery. Words must be practiced before they can be quizzed.
+- **Missing Letters** -- Fill in the blanks. The app hides ~45% of each word's letters and you type the missing ones.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Highlight Mode
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+Each activity has an optional highlight toggle (lightbulb icon) that shows real-time green/red letter feedback as you type. When enabled on Quiz, results count as practice instead -- a warning dialog explains this before you start.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### Multi-User Support
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Multiple user profiles with individual settings, progress, and session history
+- Per-user word count preferences for each activity
+- Per-user keyboard size, theme selection, and highlight preferences
+
+### Progress Tracking
+
+- Color-coded heatmap showing word mastery across all lists
+- Session history with detailed results
+- Configurable mastery levels (2-5 color grades)
+- Achievement system with 50+ achievements across 10 categories
+- Mischievements for fun milestones (typos, highlight usage, etc.)
+
+### Dictionary Integration
+
+- Merriam-Webster Dictionary API with 4 dictionary levels:
+  - Elementary (Grades 3-5)
+  - Intermediate (Grades 6-8)
+  - Collegiate
+  - Learner's
+- Audio pronunciations for every word
+- Definitions displayed during Learn mode
+
+### Additional Features
+
+- 8 custom color themes
+- Adjustable on-screen keyboard size
+- Text-to-speech fallback when dictionary audio is unavailable
+- PWA-ready for mobile home screen installation
+- List archiving to keep the home page tidy
+- Sortable word lists (by name, date, or word count)
+- Parent/teacher page for managing word lists
+- Report page for reviewing progress across all users
+- Animated bee mascot with different poses per page
+
+## Screenshots
+
+| Home | Practice | Learn |
+|------|----------|-------|
+| ![Home](docs/screenshots/home.png) | ![Practice](docs/screenshots/practice.png) | ![Learn](docs/screenshots/learn.png) |
+
+| Quiz | Missing Letters | Progress |
+|------|-----------------|----------|
+| ![Quiz](docs/screenshots/quiz.png) | ![Missing Letters](docs/screenshots/missing-letters.png) | ![Progress](docs/screenshots/progress.png) |
+
+| Options | User Profile |
+|---------|--------------|
+| ![Options](docs/screenshots/options.png) | ![Profile](docs/screenshots/profile.png) |
+
+## Prerequisites
+
+- [Bun](https://bun.sh) (runtime and package manager)
+- [Merriam-Webster API keys](https://dictionaryapi.com/register/index) (free for non-commercial use)
+
+## Installation
+
+### macOS
+
+1. **Install Bun**
+
+   ```bash
+   curl -fsSL https://bun.sh/install | bash
+   ```
+
+2. **Clone the repository**
+
+   ```bash
+   git clone <your-repo-url>
+   cd spelling-bee
+   ```
+
+3. **Install dependencies**
+
+   ```bash
+   bun install
+   ```
+
+4. **Set up environment variables**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and replace the placeholder values with your Merriam-Webster API keys. Register for free keys at [dictionaryapi.com](https://dictionaryapi.com/register/index). You'll need to request keys for each dictionary you want to use:
+
+   - Elementary Dictionary (Grades 3-5)
+   - Intermediate Dictionary (Grades 6-8)
+   - Collegiate Dictionary
+   - Learner's Dictionary
+
+5. **Start the API server**
+
+   ```bash
+   bun run server
+   ```
+
+   This starts the backend API on port 3001. It stores word lists in `data.json` and session records in `sessions.json`.
+
+6. **Start the dev server** (in a separate terminal)
+
+   ```bash
+   bun run dev
+   ```
+
+   The app will be available at `http://localhost:5173`. The Vite dev server proxies `/api` requests to the backend on port 3001.
+
+### Windows (untested)
+
+> **Note:** These instructions have not been tested on Windows. If you encounter issues, please open an issue.
+
+1. **Install Bun**
+
+   Open PowerShell and run:
+
+   ```powershell
+   irm bun.sh/install.ps1 | iex
+   ```
+
+   Alternatively, install via [Scoop](https://scoop.sh):
+
+   ```powershell
+   scoop install bun
+   ```
+
+2. **Clone the repository**
+
+   ```powershell
+   git clone <your-repo-url>
+   cd spelling-bee
+   ```
+
+3. **Install dependencies**
+
+   ```powershell
+   bun install
+   ```
+
+4. **Set up environment variables**
+
+   ```powershell
+   copy .env.example .env
+   ```
+
+   Edit `.env` with your Merriam-Webster API keys. See the macOS step 4 above for details on obtaining keys.
+
+5. **Start the API server**
+
+   ```powershell
+   bun run server
+   ```
+
+6. **Start the dev server** (in a separate terminal)
+
+   ```powershell
+   bun run dev
+   ```
+
+   The app will be available at `http://localhost:5173`.
+
+## Building for Production
+
+```bash
+bun run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The built files will be in the `dist/` directory. Serve them with any static file server, and run the API server alongside it.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Project Structure
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
 ```
+spelling-bee/
+  server.ts              # Bun API server (port 3001)
+  src/
+    App.tsx              # Routes and app shell
+    context/AppContext.tsx  # Global state (React Context + useReducer)
+    pages/               # Page components (Home, Practice, Learn, Quiz, etc.)
+    components/          # UI components organized by feature
+      layout/            # AppShell, BottomNav
+      shared/            # LetterTileRow, Keyboard, PageAvatar, etc.
+      learn/             # Learn mode components
+      practice/          # Practice mode components
+      quiz/              # Quiz mode components
+      missingLetters/    # Missing Letters mode components
+      parent/            # Word list management components
+    hooks/               # Custom hooks (session management, dictionary, speech, etc.)
+    config/              # Dictionary API configuration
+    types/               # TypeScript type definitions
+    utils/               # Achievements, mischievements, spaced repetition
+  public/
+    manifest.json        # PWA manifest
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Runtime | [Bun](https://bun.sh) |
+| Frontend | [React 19](https://react.dev) |
+| Language | [TypeScript 5.9](https://www.typescriptlang.org) |
+| Build | [Vite 7](https://vite.dev) |
+| Styling | [TailwindCSS 4](https://tailwindcss.com) + [DaisyUI 5](https://daisyui.com) |
+| Animation | [Motion](https://motion.dev) (Framer Motion) |
+| Routing | [React Router 7](https://reactrouter.com) |
+| Dictionary | [Merriam-Webster API](https://dictionaryapi.com) |
+| Data | JSON file storage via Bun server |
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

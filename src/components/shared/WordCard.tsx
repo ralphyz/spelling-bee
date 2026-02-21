@@ -1,4 +1,5 @@
 import { AudioButton } from './AudioButton'
+import { maskWordInText } from '../../utils/maskWord'
 import type { WordEntry } from '../../types'
 
 interface WordCardProps {
@@ -29,7 +30,7 @@ export function WordCard({ word, showWord = true }: WordCardProps) {
         )}
         {word.example && (
           <p className="text-base-content/60 italic text-sm">
-            "{word.example}"
+            "{showWord ? word.example : maskWordInText(word.example, word.word)}"
           </p>
         )}
       </div>

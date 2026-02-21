@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { AnimatePresence, motion } from 'motion/react'
-import { useApp, saveSession } from '../context/AppContext'
+import { useApp, saveSession, fetchSessions } from '../context/AppContext'
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition'
 import { useLearnSession } from '../hooks/useLearnSession'
 import { LearnWordCard } from '../components/learn/LearnWordCard'
@@ -11,6 +11,11 @@ import { ProgressBar } from '../components/shared/ProgressBar'
 import { CelebrationOverlay } from '../components/shared/CelebrationOverlay'
 import { EncouragementOverlay } from '../components/shared/EncouragementOverlay'
 import { PageAvatar } from '../components/shared/PageAvatar'
+import type { AchievementDef } from '../utils/achievements'
+import { computeEarnedAchievementIds, getNewlyEarnedAchievements } from '../utils/achievements'
+import { uuid } from '../utils/uuid'
+import { incrementWrong, incrementHighlightSessions, getMischiefStats, computeEarnedMischievementIds, getNewlyEarnedMischievements } from '../utils/mishchievements'
+import type { MischievementDef } from '../utils/mishchievements'
 
 export function LearnPage() {
   const { state } = useApp()
@@ -21,9 +26,12 @@ export function LearnPage() {
   const listId = activeList?.id || ''
   const { getSessionWords, getMissedSessionWords, recordResult } = useSpacedRepetition(state.currentUserId, listId)
 
-  const wordCount = state.settings.learnWordCount === 'all'
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const highlightOn = currentUser?.highlightModes?.learn ?? false
+  const learnWordCount = currentUser?.learnWordCount ?? state.settings.learnWordCount
+  const wordCount = learnWordCount === 'all'
     ? activeList?.words.length ?? 6
-    : Math.min(state.settings.learnWordCount, activeList?.words.length ?? 0)
+    : Math.min(learnWordCount, activeList?.words.length ?? 0)
 
   const getWords = useCallback(
     () => {
@@ -44,6 +52,7 @@ export function LearnPage() {
     startPractice,
     typeLetter,
     deleteLetter,
+    removeLetter,
     checkAnswer,
     next,
     retry,
@@ -51,6 +60,7 @@ export function LearnPage() {
   } = useLearnSession(sessionWords, listId)
 
   const handleNext = useCallback(() => {
+    if (session.phase === 'done') return
     if (currentWord && session.isCorrect !== null) {
       // Skip recording if this word was already recorded as incorrect (retry)
       const alreadyMissed = session.results.some(
@@ -61,7 +71,10 @@ export function LearnPage() {
       }
     }
     next()
-  }, [currentWord, session.isCorrect, session.results, recordResult, next])
+  }, [currentWord, session.phase, session.isCorrect, session.results, recordResult, next])
+
+  const [newAchievements, setNewAchievements] = useState<AchievementDef[]>([])
+  const [newMischievements, setNewMischievements] = useState<MischievementDef[]>([])
 
   const savedRef = useRef(false)
   useEffect(() => {
@@ -77,16 +90,36 @@ export function LearnPage() {
       const results = Array.from(deduped.values())
       const correct = results.filter((r) => r.correct).length
       const score = Math.round((correct / results.length) * 100)
-      saveSession({
-        id: crypto.randomUUID(),
+      const newRecord = {
+        id: uuid(),
         date: new Date().toISOString(),
         listId: activeList.id,
         listName: activeList.name,
-        mode: 'learn',
+        mode: 'learn' as const,
         results,
         score,
         userId: state.currentUserId || undefined,
-      })
+        highlightOn,
+      }
+
+      // Track mischievements
+      const wrongCount = results.filter((r) => !r.correct).length
+      const mischiefBefore = computeEarnedMischievementIds(getMischiefStats(state.currentUserId))
+      for (let i = 0; i < wrongCount; i++) incrementWrong(state.currentUserId)
+      if (highlightOn) incrementHighlightSessions(state.currentUserId)
+      const mischiefAfter = computeEarnedMischievementIds(getMischiefStats(state.currentUserId))
+      setNewMischievements(getNewlyEarnedMischievements(mischiefBefore, mischiefAfter))
+
+      fetchSessions(state.currentUserId ? { userId: state.currentUserId } : undefined).then(
+        (beforeSessions) => {
+          const beforeIds = computeEarnedAchievementIds(beforeSessions, state, state.currentUserId)
+          saveSession(newRecord).then(() => {
+            const afterSessions = [...beforeSessions, newRecord]
+            const afterIds = computeEarnedAchievementIds(afterSessions, state, state.currentUserId)
+            setNewAchievements(getNewlyEarnedAchievements(beforeIds, afterIds))
+          })
+        },
+      )
     }
   }, [session.phase, session.results, activeList])
 
@@ -106,7 +139,7 @@ export function LearnPage() {
     )
   }
 
-  if (!activeList || sessionWords.length === 0) {
+  if (!activeList || session.words.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
         <p className="text-4xl">📖</p>
@@ -138,25 +171,62 @@ export function LearnPage() {
         </motion.p>
         <h2 className="text-2xl font-bold">Session Complete!</h2>
         <p className="text-base-content/60">Great learning session!</p>
-        <div className="flex gap-3">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            className="btn btn-primary btn-lg rounded-2xl"
-            onClick={() => {
-              savedRef.current = false
-              reset(getWords())
-            }}
+
+        {newAchievements.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3, type: 'spring' }}
+            className="card bg-warning/10 border-2 border-warning shadow-lg w-full max-w-sm"
           >
-            Learn More
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            className="btn btn-ghost btn-lg rounded-2xl"
-            onClick={() => navigate('/')}
+            <div className="card-body p-4 gap-2 text-center">
+              <p className="font-bold text-warning text-sm uppercase tracking-wider">
+                Achievement Unlocked!
+              </p>
+              {newAchievements.map((a) => (
+                <div key={a.id} className="flex items-center gap-3 justify-center">
+                  <span className="text-3xl">{a.emoji}</span>
+                  <div className="text-left">
+                    <p className="font-bold">{a.name}</p>
+                    <p className="text-xs text-base-content/60">{a.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {newMischievements.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, type: 'spring' }}
+            className="card bg-error/10 border-2 border-error shadow-lg w-full max-w-sm"
           >
-            Home
-          </motion.button>
-        </div>
+            <div className="card-body p-4 gap-2 text-center">
+              <p className="font-bold text-error text-sm uppercase tracking-wider">
+                Mischievement Unlocked!
+              </p>
+              {newMischievements.map((m) => (
+                <div key={m.id} className="flex items-center gap-3 justify-center">
+                  <span className="text-3xl">{m.emoji}</span>
+                  <div className="text-left">
+                    <p className="font-bold">{m.name}</p>
+                    <p className="text-xs text-base-content/60">{m.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        <motion.button
+          whileTap={{ scale: 0.95 }}
+          className="btn btn-primary btn-lg rounded-2xl"
+          onClick={() => navigate('/')}
+        >
+          Home
+        </motion.button>
       </div>
     )
   }
@@ -204,6 +274,7 @@ export function LearnPage() {
             typedLetters={session.typedLetters}
             onKey={typeLetter}
             onDelete={deleteLetter}
+            onRemove={removeLetter}
             onSubmit={checkAnswer}
           />
         )}
@@ -223,6 +294,11 @@ export function LearnPage() {
             <p className="text-xl font-bold text-primary">
               {currentWord.word}
             </p>
+            {currentWord.definition && (
+              <p className="text-sm text-base-content/60 px-4">
+                {currentWord.definition}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

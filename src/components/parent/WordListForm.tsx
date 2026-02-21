@@ -3,6 +3,7 @@ import { motion } from 'motion/react'
 import { useApp } from '../../context/AppContext'
 import { useDictionary } from '../../hooks/useDictionary'
 import { parseWordList } from '../../utils/wordParser'
+import { uuid } from '../../utils/uuid'
 
 export function WordListForm() {
   const { dispatch } = useApp()
@@ -28,7 +29,7 @@ export function WordListForm() {
     const words = await fetchWords(parsed)
 
     const list = {
-      id: crypto.randomUUID(),
+      id: uuid(),
       name: trimmedName,
       words,
       createdAt: Date.now(),

@@ -1,25 +1,98 @@
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { BottomNav } from './BottomNav'
 import { UserSwitcher } from '../shared/UserSwitcher'
+import { useApp } from '../../context/AppContext'
+
+// Webkit-prefixed fullscreen helpers for iPad/Safari
+const doc = document as Document & {
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => Promise<void>
+  webkitFullscreenEnabled?: boolean
+}
+const root = document.documentElement as HTMLElement & {
+  webkitRequestFullscreen?: () => Promise<void>
+}
+
+// iOS (iPhone/iPad) doesn't support fullscreen API for web content
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+
+const fullscreenSupported = !isIOS && (
+  document.fullscreenEnabled ||
+  doc.webkitFullscreenEnabled ||
+  !!root.requestFullscreen ||
+  !!root.webkitRequestFullscreen
+)
+
+function getFullscreenElement() {
+  return document.fullscreenElement ?? doc.webkitFullscreenElement ?? null
+}
+
+async function requestFullscreen() {
+  if (root.requestFullscreen) return root.requestFullscreen()
+  if (root.webkitRequestFullscreen) return root.webkitRequestFullscreen()
+  throw new Error('Fullscreen API not available')
+}
+
+async function exitFullscreen() {
+  if (document.exitFullscreen) return document.exitFullscreen()
+  if (doc.webkitExitFullscreen) return doc.webkitExitFullscreen()
+  throw new Error('Fullscreen exit not available')
+}
 
 const titles: Record<string, string> = {
   '/': 'Spelling Bee',
   '/parent': 'Word Lists',
+  '/practice': 'Practice',
   '/learn': 'Learn',
   '/quiz': 'Quiz',
   '/progress': 'Progress',
   '/options': 'Settings',
   '/profile': 'Profile',
+  '/missing-letters': 'Missing Letters',
 }
 
 export function AppShell() {
+  const { state } = useApp()
   const location = useLocation()
   const navigate = useNavigate()
   const title = titles[location.pathname] || 'Spelling Bee'
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
   const isHome = location.pathname === '/'
   const isInSession = location.pathname === '/quiz'
   const [confirmTarget, setConfirmTarget] = useState<string | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(!!getFullscreenElement())
+  const [fsError, setFsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!getFullscreenElement())
+    document.addEventListener('fullscreenchange', handler)
+    document.addEventListener('webkitfullscreenchange', handler)
+    return () => {
+      document.removeEventListener('fullscreenchange', handler)
+      document.removeEventListener('webkitfullscreenchange', handler)
+    }
+  }, [])
+
+  // Auto-dismiss error toast
+  useEffect(() => {
+    if (!fsError) return
+    const t = setTimeout(() => setFsError(null), 4000)
+    return () => clearTimeout(t)
+  }, [fsError])
+
+  const toggleFullscreen = useCallback(async () => {
+    try {
+      if (getFullscreenElement()) {
+        await exitFullscreen()
+      } else {
+        await requestFullscreen()
+      }
+    } catch (err) {
+      setFsError(err instanceof Error ? err.message : 'Fullscreen not supported on this device')
+    }
+  }, [])
 
   const handleHeaderNav = (to: string) => {
     if (location.pathname === to) return
@@ -32,7 +105,7 @@ export function AppShell() {
 
   return (
     <div className="flex flex-col h-full bg-base-100">
-      <header className="sticky top-0 z-30 flex items-center gap-1 px-2 h-16 bg-base-100/80 backdrop-blur-xl border-b border-base-content/5">
+      <header className="sticky top-0 z-30 flex items-center gap-1 px-2 h-20 bg-base-100/80 backdrop-blur-xl border-b border-base-content/5">
         {!isHome ? (
           <button
             onClick={() => handleHeaderNav('/')}
@@ -49,8 +122,30 @@ export function AppShell() {
 
         <h1 className="text-xl font-bold flex-1 text-center truncate">{title}</h1>
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex items-center gap-1">
+          {currentUser && (
+            <span className="text-sm font-semibold text-base-content/70 truncate max-w-[72px]">
+              {currentUser.name}
+            </span>
+          )}
           <UserSwitcher />
+          {fullscreenSupported && (
+            <button
+              onClick={toggleFullscreen}
+              className="btn btn-ghost btn-circle"
+              title={isFullscreen ? 'Exit full screen' : 'Full screen'}
+            >
+              {isFullscreen ? (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
+          )}
           <button
             onClick={() => handleHeaderNav('/options')}
             className={`btn btn-ghost btn-circle ${
@@ -69,6 +164,12 @@ export function AppShell() {
         <Outlet />
       </main>
       <BottomNav />
+
+      {fsError && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-error text-white px-4 py-2 rounded-xl shadow-lg text-sm font-medium max-w-xs text-center">
+          {fsError}
+        </div>
+      )}
 
       {confirmTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">

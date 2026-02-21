@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { AVATARS, getAvatarSrc, DEFAULT_AVATAR } from '../../utils/themes'
+import { uuid } from '../../utils/uuid'
 
 export function UserSwitcher() {
   const { state, dispatch } = useApp()
@@ -27,7 +28,7 @@ export function UserSwitcher() {
 
   const handleAdd = () => {
     if (!name.trim()) return
-    const id = crypto.randomUUID()
+    const id = uuid()
     dispatch({ type: 'ADD_USER', payload: { id, name: name.trim(), avatar } })
     dispatch({ type: 'SET_CURRENT_USER', payload: id })
     setName('')
@@ -42,14 +43,14 @@ export function UserSwitcher() {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="btn btn-ghost btn-circle"
+        className="btn btn-ghost rounded-full w-16 h-16 min-h-0 p-0"
       >
         {avatarSrc ? (
-          <img src={avatarSrc} alt="" className="w-10 h-10 rounded-full object-cover" />
+          <img src={avatarSrc} alt="" className="w-14 h-14 rounded-full object-cover" />
         ) : currentUser ? (
-          <span className="text-2xl leading-none">{currentUser.avatar}</span>
+          <span className="text-4xl leading-none">{currentUser.avatar}</span>
         ) : (
-          <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" strokeWidth={1.25} stroke="currentColor">
+          <svg className="w-14 h-14" fill="none" viewBox="0 0 24 24" strokeWidth={1.25} stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
           </svg>
         )}

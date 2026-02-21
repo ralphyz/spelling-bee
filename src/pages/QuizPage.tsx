@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { useApp, saveSession } from '../context/AppContext'
+import { useApp, saveSession, fetchSessions } from '../context/AppContext'
 import { useSpacedRepetition } from '../hooks/useSpacedRepetition'
 import { useQuizSession } from '../hooks/useQuizSession'
 import { QuizPrompt } from '../components/quiz/QuizPrompt'
@@ -10,6 +10,11 @@ import { QuizResult } from '../components/quiz/QuizResult'
 import { QuizSummary } from '../components/quiz/QuizSummary'
 import { ProgressBar } from '../components/shared/ProgressBar'
 import { PageAvatar } from '../components/shared/PageAvatar'
+import type { AchievementDef } from '../utils/achievements'
+import { computeEarnedAchievementIds, getNewlyEarnedAchievements } from '../utils/achievements'
+import { uuid } from '../utils/uuid'
+import { incrementHighlightSessions, getMischiefStats, computeEarnedMischievementIds, getNewlyEarnedMischievements } from '../utils/mishchievements'
+import type { MischievementDef } from '../utils/mishchievements'
 
 export function QuizPage() {
   const { state } = useApp()
@@ -22,9 +27,12 @@ export function QuizPage() {
   const listId = activeList?.id || ''
   const { getSessionWords, getMissedSessionWords, getMostMissedSessionWords, recordResult } = useSpacedRepetition(state.currentUserId, listId)
 
-  const wordCount = state.settings.quizWordCount === 'all'
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const highlightOn = currentUser?.highlightModes?.quiz ?? false
+  const quizWordCount = currentUser?.quizWordCount ?? state.settings.quizWordCount
+  const wordCount = quizWordCount === 'all'
     ? activeList?.words.length ?? 6
-    : Math.min(state.settings.quizWordCount, activeList?.words.length ?? 0)
+    : Math.min(quizWordCount, activeList?.words.length ?? 0)
 
   const getWords = useCallback(
     () => {
@@ -45,18 +53,23 @@ export function QuizPage() {
     startSpelling,
     typeLetter,
     deleteLetter,
+    removeLetter,
     submit,
     next,
     reset,
   } = useQuizSession(sessionWords)
 
   const handleNext = useCallback(() => {
+    if (session.phase === 'summary') return
     const lastResult = session.results[session.results.length - 1]
     if (lastResult && currentWord) {
       recordResult(currentWord.word, lastResult.correct)
     }
     next()
-  }, [session.results, currentWord, recordResult, next])
+  }, [session.phase, session.results, currentWord, recordResult, next])
+
+  const [newAchievements, setNewAchievements] = useState<AchievementDef[]>([])
+  const [newMischievements, setNewMischievements] = useState<MischievementDef[]>([])
 
   const savedRef = useRef(false)
   useEffect(() => {
@@ -64,16 +77,36 @@ export function QuizPage() {
       savedRef.current = true
       const correct = session.results.filter((r) => r.correct).length
       const score = Math.round((correct / session.results.length) * 100)
-      saveSession({
-        id: crypto.randomUUID(),
+      const newRecord = {
+        id: uuid(),
         date: new Date().toISOString(),
         listId: activeList.id,
         listName: activeList.name,
-        mode: 'quiz',
+        mode: (highlightOn ? 'practice' : 'quiz') as 'practice' | 'quiz',
         results: session.results,
         score,
         userId: state.currentUserId || undefined,
-      })
+        highlightOn,
+      }
+
+      // Track highlight mischievements
+      if (highlightOn) {
+        const mischiefBefore = computeEarnedMischievementIds(getMischiefStats(state.currentUserId))
+        incrementHighlightSessions(state.currentUserId)
+        const mischiefAfter = computeEarnedMischievementIds(getMischiefStats(state.currentUserId))
+        setNewMischievements(getNewlyEarnedMischievements(mischiefBefore, mischiefAfter))
+      }
+
+      fetchSessions(state.currentUserId ? { userId: state.currentUserId } : undefined).then(
+        (beforeSessions) => {
+          const beforeIds = computeEarnedAchievementIds(beforeSessions, state, state.currentUserId)
+          saveSession(newRecord).then(() => {
+            const afterSessions = [...beforeSessions, newRecord]
+            const afterIds = computeEarnedAchievementIds(afterSessions, state, state.currentUserId)
+            setNewAchievements(getNewlyEarnedAchievements(beforeIds, afterIds))
+          })
+        },
+      )
     }
   }, [session.phase, session.results, activeList])
 
@@ -118,11 +151,9 @@ export function QuizPage() {
       <div className="max-w-2xl mx-auto">
         <QuizSummary
           results={session.results}
-          onRestart={() => {
-            savedRef.current = false
-            reset(getWords())
-          }}
           onHome={() => navigate('/')}
+          newAchievements={newAchievements}
+          newMischievements={newMischievements}
         />
       </div>
     )
@@ -148,6 +179,7 @@ export function QuizPage() {
           typedLetters={session.typedLetters}
           onKey={typeLetter}
           onDelete={deleteLetter}
+          onRemove={removeLetter}
           onSubmit={submit}
         />
       )}

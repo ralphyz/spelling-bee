@@ -1,20 +1,24 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { useApp, fetchSessions } from '../context/AppContext'
-import { getMasteryLevel } from '../utils/spacedRepetition'
 import { getAvatarSrc } from '../utils/themes'
+import { ACHIEVEMENTS, CATEGORIES, computeEarnedAchievementIds } from '../utils/achievements'
+import { MISCHIEVEMENTS, getMischiefStats, computeEarnedMischievementIds } from '../utils/mishchievements'
 import type { SessionRecord, WordProgress, UserProfile } from '../types'
 
 interface UserStats {
   user: UserProfile
   totalWords: number
   practiced: number
+  missed: number
   mastered: number
   accuracy: number
   sessions: number
   lastActive: number
   struggleWords: { word: string; listName: string; incorrect: number }[]
-  listBreakdowns: { listName: string; practiced: number; mastered: number; total: number }[]
+  listBreakdowns: { listName: string; practiced: number; missed: number; mastered: number; total: number }[]
+  earnedIds: Set<string>
+  earnedMischievementIds: Set<string>
 }
 
 function computeUserStats(
@@ -22,16 +26,23 @@ function computeUserStats(
   state: ReturnType<typeof useApp>['state'],
   sessions: SessionRecord[],
 ): UserStats {
+  const mastery = (state.settings.heatmapLevels || 3) - 1
   let totalWords = 0
   let practiced = 0
+  let missed = 0
   let mastered = 0
   let totalCorrect = 0
   let totalAttempts = 0
   const struggleWords: UserStats['struggleWords'] = []
   const listBreakdowns: UserStats['listBreakdowns'] = []
 
+  const userSessions = sessions.filter(
+    (s) => s.userId === user.id || (!s.userId && sessions.length > 0)
+  )
+
   for (const list of state.wordLists) {
     let listPracticed = 0
+    let listMissed = 0
     let listMastered = 0
 
     for (const w of list.words) {
@@ -39,40 +50,39 @@ function computeUserStats(
       const legacyKey = `${list.id}:${w.word}`
       const p: WordProgress | undefined = state.progress[userKey] || state.progress[legacyKey]
 
-      if (p && p.lastReviewed > 0) {
+      if (!p || p.lastReviewed === 0) continue // unattempted
+
+      totalCorrect += p.correctCount
+      totalAttempts += p.correctCount + p.incorrectCount
+
+      if (p.incorrectCount > 0 && p.repetitions === 0) {
+        // missed
+        listMissed++
+        struggleWords.push({
+          word: w.word,
+          listName: list.name,
+          incorrect: p.incorrectCount,
+        })
+      } else if (p.repetitions > 0) {
+        // practiced
         listPracticed++
-        totalCorrect += p.correctCount
-        totalAttempts += p.correctCount + p.incorrectCount
-
-        if (getMasteryLevel(p) >= 80) {
-          listMastered++
-        }
-
-        if (p.incorrectCount > 0 && getMasteryLevel(p) < 60) {
-          struggleWords.push({
-            word: w.word,
-            listName: list.name,
-            incorrect: p.incorrectCount,
-          })
-        }
+        if (p.repetitions >= mastery) listMastered++
       }
     }
 
     totalWords += list.words.length
     practiced += listPracticed
+    missed += listMissed
     mastered += listMastered
 
     listBreakdowns.push({
       listName: list.name,
       practiced: listPracticed,
+      missed: listMissed,
       mastered: listMastered,
       total: list.words.length,
     })
   }
-
-  const userSessions = sessions.filter(
-    (s) => s.userId === user.id || (!s.userId && sessions.length > 0)
-  )
 
   const lastActive = userSessions.length > 0
     ? Math.max(...userSessions.map((s) => new Date(s.date).getTime()))
@@ -80,16 +90,22 @@ function computeUserStats(
 
   struggleWords.sort((a, b) => b.incorrect - a.incorrect)
 
+  const earnedIds = computeEarnedAchievementIds(userSessions, state, user.id)
+  const earnedMischievementIds = computeEarnedMischievementIds(getMischiefStats(user.id))
+
   return {
     user,
     totalWords,
     practiced,
+    missed,
     mastered,
     accuracy: totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0,
     sessions: userSessions.length,
     lastActive,
     struggleWords: struggleWords.slice(0, 5),
     listBreakdowns,
+    earnedIds,
+    earnedMischievementIds,
   }
 }
 
@@ -103,6 +119,7 @@ function StatBadge({ value, label, color }: { value: string | number; label: str
 }
 
 function UserReportCard({ stats, index }: { stats: UserStats; index: number }) {
+  const [open, setOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const avatarSrc = getAvatarSrc(stats.user.avatar)
 
@@ -113,6 +130,10 @@ function UserReportCard({ stats, index }: { stats: UserStats; index: number }) {
       })
     : 'Never'
 
+  const latestAchievement = [...ACHIEVEMENTS].reverse().find((a) => stats.earnedIds.has(a.id))
+  const latestMischievement = [...MISCHIEVEMENTS].reverse().find((m) => stats.earnedMischievementIds.has(m.id))
+  const latestBadge = latestMischievement || latestAchievement
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -121,7 +142,7 @@ function UserReportCard({ stats, index }: { stats: UserStats; index: number }) {
     >
       <div className="card-body p-4 gap-3">
         <button
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => setOpen(!open)}
           className="flex items-center gap-3 w-full text-left"
         >
           <motion.div
@@ -150,16 +171,27 @@ function UserReportCard({ stats, index }: { stats: UserStats; index: number }) {
               Last active: {lastActiveStr}
             </p>
           </div>
+          {latestBadge && (
+            <div className="hidden landscape:flex items-center gap-2 shrink-0">
+              <span className="text-2xl">{latestBadge.emoji}</span>
+              <div className="text-right">
+                <p className="text-xs font-semibold">{latestBadge.name}</p>
+                <p className="text-[10px] text-base-content/50">{latestBadge.description}</p>
+              </div>
+            </div>
+          )}
           <svg
-            className={`w-6 h-6 text-base-content/40 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`w-6 h-6 text-base-content/40 transition-transform ${open ? 'rotate-180' : ''}`}
             fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
           </svg>
         </button>
 
-        <div className="grid grid-cols-4 gap-2">
+        {open && (<>
+        <div className="grid grid-cols-5 gap-2">
           <StatBadge value={stats.practiced} label="Practiced" color="text-primary" />
+          <StatBadge value={stats.missed} label="Missed" color="text-error" />
           <StatBadge value={stats.mastered} label="Mastered" color="text-success" />
           <StatBadge value={`${stats.accuracy}%`} label="Accuracy" color="text-info" />
           <StatBadge value={stats.sessions} label="Sessions" color="text-secondary" />
@@ -221,8 +253,56 @@ function UserReportCard({ stats, index }: { stats: UserStats; index: number }) {
             {stats.struggleWords.length === 0 && stats.practiced > 0 && (
               <p className="text-sm text-success">No struggling words — great job!</p>
             )}
+
+            <div>
+              <p className="text-sm font-medium mb-2">
+                Achievements ({stats.earnedIds.size}/{ACHIEVEMENTS.length})
+              </p>
+              <div className="space-y-3">
+                {CATEGORIES.map((cat) => {
+                  const catAchievements = ACHIEVEMENTS.filter((a) => a.category === cat.id)
+                  const earned = catAchievements.filter((a) => stats.earnedIds.has(a.id))
+                  if (earned.length === 0) return null
+                  return (
+                    <div key={cat.id}>
+                      <p className="text-xs text-base-content/50 uppercase tracking-wide mb-1">
+                        {cat.label}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {catAchievements.map((a) => {
+                          const isEarned = stats.earnedIds.has(a.id)
+                          return (
+                            <span
+                              key={a.id}
+                              title={`${a.name} — ${a.description}`}
+                              className={`text-xl ${isEarned ? '' : 'opacity-20 grayscale'}`}
+                            >
+                              {a.emoji}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </motion.div>
         )}
+
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center justify-center gap-1 text-xs text-base-content/40 hover:text-base-content/60 transition-colors pt-1"
+        >
+          {expanded ? 'Less' : 'Details'}
+          <svg
+            className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`}
+            fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+          </svg>
+        </button>
+        </>)}
       </div>
     </motion.div>
   )

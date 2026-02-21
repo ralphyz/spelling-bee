@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import { AlphabetKeyboard } from '../shared/AlphabetKeyboard'
 import { LetterTileRow } from '../shared/LetterTileRow'
 import { AudioButton } from '../shared/AudioButton'
+import { useApp } from '../../context/AppContext'
 import type { WordEntry } from '../../types'
 
 interface QuizSpellingProps {
@@ -9,6 +10,7 @@ interface QuizSpellingProps {
   typedLetters: string[]
   onKey: (letter: string) => void
   onDelete: () => void
+  onRemove: (index: number) => void
   onSubmit: () => void
 }
 
@@ -17,28 +19,32 @@ export function QuizSpelling({
   typedLetters,
   onKey,
   onDelete,
+  onRemove,
   onSubmit,
 }: QuizSpellingProps) {
+  const { state } = useApp()
+  const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const highlightMode = currentUser?.highlightModes?.quiz ?? false
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="space-y-4"
     >
-      <div className="flex items-center justify-center gap-2">
+      <div className="text-center space-y-1">
         <AudioButton word={word.word} audioUrl={word.audioUrl} size="md" />
         {word.definition && (
-          <div className="tooltip tooltip-bottom" data-tip={word.definition}>
-            <button className="btn btn-ghost btn-circle btn-sm text-base-content/40">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
-              </svg>
-            </button>
-          </div>
+          <p className="text-sm text-base-content/60 px-4">{word.definition}</p>
         )}
       </div>
 
-      <LetterTileRow letters={typedLetters} />
+      <LetterTileRow
+        letters={typedLetters}
+        correctWord={highlightMode ? word.word : undefined}
+        showFeedback={highlightMode}
+        onRemove={onRemove}
+      />
 
       <AlphabetKeyboard
         onKey={onKey}

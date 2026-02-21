@@ -75,45 +75,20 @@ export function selectWordsForSession(
   allProgress: WordProgress[],
   count: number
 ): WordProgress[] {
-  const now = Date.now()
-
-  const due = shuffleArray(
-    allProgress.filter((p) => p.nextReview <= now && p.lastReviewed > 0)
-  )
-
-  const newWords = shuffleArray(
+  // Untested/unpracticed words first (randomized)
+  const untested = shuffleArray(
     allProgress.filter((p) => p.lastReviewed === 0)
   )
 
-  const selected: WordProgress[] = []
+  // Then practiced words (randomized)
+  const practiced = shuffleArray(
+    allProgress.filter((p) => p.lastReviewed > 0)
+  )
 
-  // prioritize due words (randomized)
-  for (const p of due) {
-    if (selected.length >= count) break
-    selected.push(p)
-  }
+  // Combine: untested first, then practiced
+  const pool = [...untested, ...practiced]
 
-  // fill with new words (randomized)
-  for (const p of newWords) {
-    if (selected.length >= count) break
-    if (!selected.find((s) => s.word === p.word)) {
-      selected.push(p)
-    }
-  }
-
-  // if still not enough, take any remaining (randomized)
-  if (selected.length < count) {
-    const remaining = shuffleArray(
-      allProgress.filter((p) => !selected.find((s) => s.word === p.word))
-    )
-
-    for (const p of remaining) {
-      if (selected.length >= count) break
-      selected.push(p)
-    }
-  }
-
-  return selected.slice(0, count)
+  return pool.slice(0, count)
 }
 
 export function getMasteryLevel(progress: WordProgress): number {

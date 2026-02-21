@@ -39,6 +39,10 @@ export function useSound() {
     playTone(800, 0.05, 'sine')
   }, [playTone])
 
+  const deleteSound = useCallback(() => {
+    playTone(400, 0.08, 'triangle')
+  }, [playTone])
+
   const correctSound = useCallback(() => {
     playTone(523, 0.15, 'sine')
     setTimeout(() => playTone(659, 0.15, 'sine'), 150)
@@ -50,5 +54,5 @@ export function useSound() {
     setTimeout(() => playTone(250, 0.3, 'triangle'), 150)
   }, [playTone])
 
-  return { tapSound, correctSound, incorrectSound }
+  return { tapSound, deleteSound, correctSound, incorrectSound }
 }

@@ -1,8 +1,9 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { useApp } from '../context/AppContext'
+import { useApp, fetchSessions } from '../context/AppContext'
 import { PageAvatar } from '../components/shared/PageAvatar'
-import type { WordList } from '../types'
+import type { WordList, SessionRecord } from '../types'
 
 function sortLists(lists: WordList[], sortBy: string, sortDir: string) {
   return [...lists].sort((a, b) => {
@@ -14,17 +15,44 @@ function sortLists(lists: WordList[], sortBy: string, sortDir: string) {
   })
 }
 
+function isQuizComplete(list: WordList, sessions: SessionRecord[], mastery: number): boolean {
+  const quizSessions = sessions
+    .filter((s) => s.listId === list.id && s.mode === 'quiz')
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  if (quizSessions.length === 0) return false
+  for (const w of list.words) {
+    let consecutive = 0
+    let mastered = false
+    for (const session of quizSessions) {
+      const result = session.results.find((r) => r.word === w.word)
+      if (result) {
+        if (result.correct) {
+          consecutive++
+          if (consecutive >= mastery) { mastered = true; break }
+        } else {
+          consecutive = 0
+        }
+      }
+    }
+    if (!mastered) return false
+  }
+  return true
+}
+
 export function HomePage() {
   const { state, dispatch } = useApp()
   const navigate = useNavigate()
+  const [sessions, setSessions] = useState<SessionRecord[]>([])
+
+  useEffect(() => {
+    fetchSessions(state.currentUserId ? { userId: state.currentUserId } : undefined).then(setSessions)
+  }, [state.currentUserId])
 
   const currentUser = state.users.find((u) => u.id === state.currentUserId)
   const deprioritized = currentUser?.deprioritizedLists || []
   const sortBy = currentUser?.listSortBy || 'date'
   const sortDir = currentUser?.listSortDir || 'desc'
-
-  const learnLabel = state.settings.learnWordCount === 'all' ? 'All' : state.settings.learnWordCount
-  const quizLabel = state.settings.quizWordCount === 'all' ? 'All' : state.settings.quizWordCount
+  const showArchived = currentUser?.showArchived ?? false
 
   const activeLists = sortLists(
     state.wordLists.filter((l) => !deprioritized.includes(l.id)),
@@ -37,7 +65,9 @@ export function HomePage() {
     sortDir
   )
 
-  const handleSelect = (listId: string, mode: 'learn' | 'quiz', opts?: { missed?: boolean; mostMissed?: boolean }) => {
+  const [highlightWarning, setHighlightWarning] = useState<{ listId: string; mode: 'learn' | 'quiz' | 'practice' | 'missing-letters'; highlightKey: 'practice' | 'learn' | 'quiz' | 'missingLetters' } | null>(null)
+
+  const handleSelect = (listId: string, mode: 'learn' | 'quiz' | 'practice' | 'missing-letters', opts?: { missed?: boolean }) => {
     dispatch({ type: 'SET_ACTIVE_LIST', payload: listId })
     navigate(`/${mode}`, opts ? { state: opts } : undefined)
   }
@@ -89,36 +119,76 @@ export function HomePage() {
   const sortArrow = (key: string) =>
     sortBy === key ? (sortDir === 'asc' ? ' \u2191' : ' \u2193') : ''
 
-  const getMissedCount = (list: WordList) =>
-    list.words.filter((w) => {
+  const getWordCounts = (list: WordList, mastery: number) => {
+    let missed = 0
+    let practiced = 0
+    let mastered = 0
+    for (const w of list.words) {
       const userKey = state.currentUserId ? `${state.currentUserId}:${list.id}:${w.word}` : null
       const legacyKey = `${list.id}:${w.word}`
       const p = (userKey && state.progress[userKey]) || state.progress[legacyKey]
-      return p && p.incorrectCount > 0 && p.repetitions === 0
-    }).length
-
-  const getPracticedCount = (list: WordList) =>
-    list.words.filter((w) => {
-      const userKey = state.currentUserId ? `${state.currentUserId}:${list.id}:${w.word}` : null
-      const legacyKey = `${list.id}:${w.word}`
-      const p = (userKey && state.progress[userKey]) || state.progress[legacyKey]
-      return p && p.lastReviewed > 0
-    }).length
-
-  const getEverMissedCount = (list: WordList) =>
-    list.words.filter((w) => {
-      const userKey = state.currentUserId ? `${state.currentUserId}:${list.id}:${w.word}` : null
-      const legacyKey = `${list.id}:${w.word}`
-      const p = (userKey && state.progress[userKey]) || state.progress[legacyKey]
-      return p && p.incorrectCount > 0
-    }).length
+      if (!p || p.lastReviewed === 0) continue // unattempted
+      if (p.incorrectCount > 0 && p.repetitions === 0) { missed++; continue }
+      if (p.repetitions > 0) {
+        practiced++
+        if (p.repetitions >= mastery) mastered++
+      }
+    }
+    return { missed, practiced, mastered, unattempted: list.words.length - missed - practiced }
+  }
 
   const renderListCard = (list: WordList, archived: boolean) => {
-    const missedCount = getMissedCount(list)
-    const practicedCount = getPracticedCount(list)
+    const mastery = (state.settings.heatmapLevels || 3) - 1
+    const counts = getWordCounts(list, mastery)
+    const total = list.words.length
     const needsPractice = list.requirePractice !== false
-    const allPracticed = !needsPractice || practicedCount >= list.words.length
-    const everMissedCount = getEverMissedCount(list)
+    const allPracticed = !needsPractice || counts.unattempted === 0
+    const learnComplete = counts.unattempted === 0 && counts.missed === 0
+    const quizComplete = isQuizComplete(list, sessions, mastery)
+
+    const highlightModes = currentUser?.highlightModes ?? {}
+
+    const activities = [
+      {
+        label: 'Practice',
+        emoji: '✏️',
+        mode: 'practice' as const,
+        highlightKey: 'practice' as const,
+        bg: 'bg-accent/25',
+        border: 'border-accent/40',
+        text: 'text-accent',
+      },
+      {
+        label: 'Missing Letters',
+        emoji: '🧩',
+        mode: 'missing-letters' as const,
+        highlightKey: 'missingLetters' as const,
+        bg: 'bg-info/25',
+        border: 'border-info/40',
+        text: 'text-info',
+      },
+      {
+        label: 'Learn',
+        emoji: '📖',
+        mode: 'learn' as const,
+        highlightKey: 'learn' as const,
+        bg: 'bg-primary/30',
+        border: 'border-primary/45',
+        text: 'text-primary',
+        complete: learnComplete,
+      },
+      {
+        label: allPracticed ? 'Quiz' : `Quiz (${total - counts.unattempted}/${total})`,
+        emoji: '🐝',
+        mode: 'quiz' as const,
+        highlightKey: 'quiz' as const,
+        bg: 'bg-secondary/40',
+        border: 'border-secondary/55',
+        text: 'text-secondary',
+        disabled: !allPracticed,
+        complete: quizComplete,
+      },
+    ]
 
     return (
       <motion.div
@@ -128,90 +198,90 @@ export function HomePage() {
         className={`card bg-base-200 shadow-sm w-11/12 landscape:w-2/3 ${archived ? 'opacity-50' : ''}`}
       >
         <div className="card-body p-3">
-          <div className="flex items-center gap-3">
-            <div className="min-w-0 w-1/3 shrink-0">
-              <div className="flex items-center gap-1">
-                <h3 className="font-bold text-base truncate">{list.name}</h3>
-                {state.currentUserId && (
-                  <button
-                    className="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content/70"
-                    title={archived ? 'Restore list' : 'Archive list'}
-                    onClick={() => handleTogglePriority(list.id)}
-                  >
-                    {archived ? (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15M9 12l3-3m0 0 3 3m-3-3v12" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                      </svg>
-                    )}
-                  </button>
+          <div className="flex items-center gap-1 mb-1">
+            <h3 className="font-bold text-base truncate">{list.name}</h3>
+            {state.currentUserId && (
+              <button
+                className="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content/70 shrink-0"
+                title={archived ? 'Restore list' : 'Archive list'}
+                onClick={() => handleTogglePriority(list.id)}
+              >
+                {archived ? (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15M9 12l3-3m0 0 3 3m-3-3v12" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0-3-3m3 3 3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+                  </svg>
                 )}
-              </div>
-              <p className="text-xs text-base-content/60">
-                {(() => {
-                  const mastery = (state.settings.heatmapLevels || 3) - 1
-                  const mastered = list.words.filter((w) => {
-                    const userKey = state.currentUserId ? `${state.currentUserId}:${list.id}:${w.word}` : null
-                    const legacyKey = `${list.id}:${w.word}`
-                    const p = (userKey && state.progress[userKey]) || state.progress[legacyKey]
-                    return p && p.repetitions >= mastery
-                  }).length
-                  return `${mastered}/${list.words.length} mastered`
-                })()}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 flex-1">
-              <div className="flex gap-2">
-                <motion.button
-                  whileTap={{ scale: 0.95 }}
-                  className="btn btn-primary rounded-xl text-base flex-1"
-                  onClick={() => handleSelect(list.id, 'learn')}
+              </button>
+            )}
+            <div className="ml-auto flex items-center gap-2">
+              {counts.missed > 0 && (
+                <button
+                  className="badge badge-sm bg-error/20 text-error hover:bg-error/30 transition-colors gap-1 py-2 whitespace-nowrap"
+                  onClick={() => handleSelect(list.id, 'learn', { missed: true })}
                 >
-                  <span className="text-2xl">📖</span> Learn ({learnLabel})
-                </motion.button>
-                <motion.button
-                  whileTap={allPracticed ? { scale: 0.95 } : undefined}
-                  className={`btn btn-secondary rounded-xl text-base flex-1 ${!allPracticed ? 'btn-disabled' : ''}`}
-                  onClick={() => allPracticed && handleSelect(list.id, 'quiz')}
-                  title={!allPracticed ? `Practice all words first (${practicedCount}/${list.words.length})` : undefined}
-                >
-                  <span className="text-2xl">🐝</span> {allPracticed ? `Quiz (${quizLabel})` : `${practicedCount}/${list.words.length}`}
-                </motion.button>
-              </div>
-              {(missedCount > 0 || (allPracticed && everMissedCount > 0)) && (
-                <div className="grid grid-cols-2 gap-2">
-                  {missedCount > 0 ? (
-                    <button
-                      className="badge badge-sm bg-base-300 text-base-content/60 hover:bg-base-content/20 transition-colors gap-1 py-2.5 w-full"
-                      onClick={() => handleSelect(list.id, 'learn', { missed: true })}
-                    >
-                      Missed ({missedCount}) - Learn
-                    </button>
-                  ) : <div />}
-                  <div className="flex flex-col gap-2 items-center">
-                    {missedCount > 0 && allPracticed && (
-                      <button
-                        className="badge badge-sm bg-base-300 text-base-content/60 hover:bg-base-content/20 transition-colors gap-1 py-2.5 w-full"
-                        onClick={() => handleSelect(list.id, 'quiz', { missed: true })}
-                      >
-                        Missed ({missedCount}) - Quiz
-                      </button>
-                    )}
-                    {allPracticed && everMissedCount > 0 && (
-                      <button
-                        className="badge badge-sm bg-base-300 text-base-content/60 hover:bg-base-content/20 transition-colors gap-1 py-2.5 w-full"
-                        onClick={() => handleSelect(list.id, 'quiz', { mostMissed: true })}
-                      >
-                        Most Missed ({everMissedCount}) - Quiz
-                      </button>
-                    )}
-                  </div>
-                </div>
+                  😬 {counts.missed}
+                </button>
               )}
+              <span className="text-xs text-base-content/50">
+                {counts.practiced}/{total}
+                {counts.mastered > 0 && ` (${counts.mastered} mastered)`}
+              </span>
             </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            {activities.map((act) => {
+              const hlOn = !!highlightModes[act.highlightKey]
+              return (
+                <motion.div
+                  key={act.mode}
+                  initial={{ opacity: 0, x: -5 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${act.bg} ${act.border} ${act.disabled ? 'opacity-40' : ''} ${act.complete ? 'ring-2 ring-success ring-offset-1 ring-offset-base-200' : ''} transition-all`}
+                >
+                  <motion.div
+                    className={`flex items-center gap-2 flex-1 ${act.disabled ? '' : 'cursor-pointer hover:brightness-90 active:brightness-85'}`}
+                    whileTap={!act.disabled ? { scale: 0.97 } : undefined}
+                    onClick={() => {
+                      if (act.disabled) return
+                      if (act.mode === 'quiz' && hlOn) {
+                        setHighlightWarning({ listId: list.id, mode: act.mode, highlightKey: act.highlightKey })
+                      } else {
+                        handleSelect(list.id, act.mode)
+                      }
+                    }}
+                    title={act.disabled ? `Practice all words first (${total - counts.unattempted}/${total})` : act.label}
+                  >
+                    <span className="text-lg shrink-0">{act.emoji}</span>
+                    <span className={`font-semibold text-sm ${act.text}`}>
+                      {act.label}
+                    </span>
+                    {act.complete && (
+                      <svg className="w-4 h-4 text-success shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </motion.div>
+                  {state.currentUserId && (
+                    <button
+                      className={`btn btn-ghost btn-xs btn-circle shrink-0 ${hlOn ? 'text-warning' : 'text-base-content/25'}`}
+                      title={hlOn ? 'Highlight on' : 'Highlight off'}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        dispatch({ type: 'TOGGLE_HIGHLIGHT_MODE', payload: { userId: state.currentUserId!, activity: act.highlightKey } })
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill={hlOn ? 'currentColor' : 'none'} viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18v-5.25m0 0a6.01 6.01 0 0 0 1.5-.189m-1.5.189a6.01 6.01 0 0 1-1.5-.189m3.75 7.478a12.06 12.06 0 0 1-4.5 0m3.75 2.383a14.406 14.406 0 0 1-3 0M14.25 18v-.192c0-.983.658-1.823 1.508-2.316a7.5 7.5 0 1 0-7.517 0c.85.493 1.509 1.333 1.509 2.316V18" />
+                      </svg>
+                    </button>
+                  )}
+                </motion.div>
+              )
+            })}
           </div>
         </div>
       </motion.div>
@@ -247,15 +317,69 @@ export function HomePage() {
 
       {archivedLists.length > 0 && (
         <>
-          <div className="flex items-center gap-3 px-6">
+          <div
+            className="flex items-center gap-3 px-6 cursor-pointer group"
+            onClick={() => state.currentUserId && dispatch({ type: 'TOGGLE_SHOW_ARCHIVED', payload: { userId: state.currentUserId } })}
+          >
             <div className="flex-1 border-t border-base-content/10" />
-            <span className="text-xs font-semibold text-base-content/40 uppercase tracking-wider">Archived</span>
+            <span className="text-xs font-semibold text-base-content/40 uppercase tracking-wider group-hover:text-base-content/60 transition-colors select-none">
+              Archived ({archivedLists.length}) {showArchived ? '▾' : '▸'}
+            </span>
             <div className="flex-1 border-t border-base-content/10" />
           </div>
-          <div className="flex flex-col items-center gap-3">
-            {archivedLists.map((list) => renderListCard(list, true))}
-          </div>
+          {showArchived && (
+            <div className="flex flex-col items-center gap-3">
+              {archivedLists.map((list) => renderListCard(list, true))}
+            </div>
+          )}
         </>
+      )}
+
+      {highlightWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-base-100 rounded-2xl p-6 mx-4 max-w-sm w-full shadow-2xl text-center space-y-4 border border-base-content/5"
+          >
+            <p className="text-3xl">💡</p>
+            <p className="text-lg font-bold">Highlight is on</p>
+            <p className="text-base-content/60 text-sm">
+              With highlight enabled, you'll see letter-by-letter feedback as you type. Quiz results will count as <span className="font-semibold text-accent">practice</span> instead.
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                className="btn btn-primary rounded-xl w-full"
+                onClick={() => {
+                  const { listId, mode } = highlightWarning
+                  setHighlightWarning(null)
+                  handleSelect(listId, mode)
+                }}
+              >
+                Continue as Practice
+              </button>
+              <button
+                className="btn btn-secondary rounded-xl w-full"
+                onClick={() => {
+                  if (state.currentUserId) {
+                    dispatch({ type: 'TOGGLE_HIGHLIGHT_MODE', payload: { userId: state.currentUserId, activity: highlightWarning.highlightKey } })
+                  }
+                  const { listId, mode } = highlightWarning
+                  setHighlightWarning(null)
+                  handleSelect(listId, mode)
+                }}
+              >
+                Turn Off Highlight & Quiz
+              </button>
+              <button
+                className="btn btn-ghost rounded-xl w-full"
+                onClick={() => setHighlightWarning(null)}
+              >
+                Cancel
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   )
