@@ -66,6 +66,12 @@ The app uses a simple PIN system to separate families or classrooms sharing the 
 - Falls back to Merriam-Webster audio and browser speech synthesis if ElevenLabs is not configured
 - Server-side proxy keeps the API key secret -- never exposed to the browser
 
+### Default Word List
+
+- Ships with a "Big Kids!" starter list (20 simple words: cat, dog, sun, etc.) so new users have something to practice right away
+- Includes Merriam-Webster definitions for each word
+- Automatically loaded on first server start when no existing data is found
+
 ### Additional Features
 
 - 8 custom color themes
