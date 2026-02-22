@@ -101,6 +101,7 @@ The app uses a simple PIN system to separate families or classrooms sharing the 
 
 - [Bun](https://bun.sh) (runtime and package manager)
 - [Merriam-Webster API keys](https://dictionaryapi.com/register/index) (free for non-commercial use)
+- [ElevenLabs API key](https://elevenlabs.io) (optional -- adds high-quality AI voice for word and letter pronunciation; requires paid plan)
 
 ## Installation
 
