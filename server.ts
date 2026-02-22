@@ -74,6 +74,8 @@ function isLocalIp(ip: string): boolean {
   return false
 }
 
+const DEFAULT_DATA_FILE = './default-data.json'
+
 async function loadState() {
   try {
     const f = file(DATA_FILE)
@@ -83,6 +85,17 @@ async function loadState() {
       if (!state.users) state.users = []
       if (state.currentUserId === undefined) state.currentUserId = null
       return state
+    }
+  } catch {
+    // ignore
+  }
+  // Seed with default data if available
+  try {
+    const df = file(DEFAULT_DATA_FILE)
+    if (await df.exists()) {
+      const seed = await df.json()
+      await Bun.write(DATA_FILE, JSON.stringify(seed, null, 2))
+      return seed
     }
   } catch {
     // ignore

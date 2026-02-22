@@ -1,0 +1,180 @@
+{
+  "wordLists": [
+    {
+      "id": "default-big-kids",
+      "name": "Big Kids!",
+      "words": [
+        {
+          "word": "cat",
+          "definition": "a common furry meat-eating animal kept as a pet or for catching mice and rats",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/c/cat00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "dog",
+          "definition": "a domestic animal that eats meat and is closely related to the wolves",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/d/dog00002.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "sun",
+          "definition": "the heavenly body in our solar system whose light makes our day and around which the planets revolve",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/s/sun00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "hat",
+          "definition": "a covering for the head having a crown and usually a brim",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/h/hat00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "bed",
+          "definition": "a piece of furniture on which a person sleeps or rests",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/b/bed00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "pig",
+          "definition": "a hoofed stout-bodied animal with a short tail and legs, thick bristly skin, and a long flattened snout",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/p/pig00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "cup",
+          "definition": "a container to drink out of in the shape of a small bowl usually with a handle",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/c/cup00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "run",
+          "definition": "to go at a pace faster than a walk",
+          "partOfSpeech": "verb",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/r/run00001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "tree",
+          "definition": "a long-lived woody plant that has a single usually tall main stem with few or no branches on its lower part",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/t/tree0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "ball",
+          "definition": "something round or roundish",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/b/ball0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "fish",
+          "definition": "any of a large group of vertebrate animals that live in water, breathe with gills, and usually have fins and scales",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/f/fish0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "book",
+          "definition": "a set of sheets of paper bound together",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/b/book0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "bird",
+          "definition": "an animal that lays eggs and has wings and a body covered with feathers",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/b/bird0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "milk",
+          "definition": "a whitish liquid produced and given off by the breasts or udder of a female mammal as food for her young",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/m/milk0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "frog",
+          "definition": "a tailless animal that is an amphibian with smooth moist skin and webbed feet that spends more of its time in water than the related toad",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/f/frog0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "hand",
+          "definition": "the body part at the end of the human arm that includes the fingers and thumb",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/h/hand0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "star",
+          "definition": "any of the heavenly bodies except planets which are visible at night and look like fixed points of light",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/s/star0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "duck",
+          "definition": "a swimming bird that has a broad flat bill and is smaller than the related goose and swan",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/d/duck0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "ship",
+          "definition": "a large boat designed for travel by sea",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/s/ship0001.mp3",
+          "phonetic": ""
+        },
+        {
+          "word": "cake",
+          "definition": "a baked food made from a sweet batter or dough",
+          "partOfSpeech": "noun",
+          "example": "",
+          "audioUrl": "https://media.merriam-webster.com/audio/prons/en/us/mp3/c/cake0001.mp3",
+          "phonetic": ""
+        }
+      ],
+      "createdAt": 1771797021155,
+      "updatedAt": 1771797021155
+    }
+  ],
+  "progress": {},
+  "activeListId": "default-big-kids",
+  "settings": {
+    "learnWordCount": 5,
+    "quizWordCount": 5
+  },
+  "users": [],
+  "currentUserId": null
+}
