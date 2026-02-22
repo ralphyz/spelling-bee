@@ -1,7 +1,6 @@
 import { motion } from 'motion/react'
 import { useApp } from '../context/AppContext'
 import type { HeatmapLevels } from '../types'
-import { PageAvatar } from '../components/shared/PageAvatar'
 import { ACHIEVEMENTS, CATEGORIES } from '../utils/achievements'
 import { MISCHIEVEMENTS } from '../utils/mishchievements'
 
@@ -35,7 +34,13 @@ export function OptionsPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="text-center space-y-2">
-        <PageAvatar pose="options" size="lg" />
+        <motion.p
+          animate={{ y: [0, -6, 0] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="text-5xl"
+        >
+          🐝
+        </motion.p>
         <h1 className="text-2xl font-bold text-primary">Options</h1>
       </div>
 
