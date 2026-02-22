@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { useApp, fetchSessions } from '../context/AppContext'
+import { useApp, fetchSessions, filterVisibleLists } from '../context/AppContext'
 import { PageAvatar } from '../components/shared/PageAvatar'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
 import type { WordList, SessionRecord } from '../types'
 
 function sortLists(lists: WordList[], sortBy: string, sortDir: string) {
@@ -54,13 +55,14 @@ export function HomePage() {
   const sortDir = currentUser?.listSortDir || 'desc'
   const showArchived = currentUser?.showArchived ?? false
 
+  const visibleLists = filterVisibleLists(state.wordLists, state)
   const activeLists = sortLists(
-    state.wordLists.filter((l) => !deprioritized.includes(l.id)),
+    visibleLists.filter((l) => !deprioritized.includes(l.id)),
     sortBy,
     sortDir
   )
   const archivedLists = sortLists(
-    state.wordLists.filter((l) => deprioritized.includes(l.id)),
+    visibleLists.filter((l) => deprioritized.includes(l.id)),
     sortBy,
     sortDir
   )
@@ -91,17 +93,12 @@ export function HomePage() {
     })
   }
 
-  if (state.wordLists.length === 0) {
+  if (visibleLists.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
-        <motion.p
-          animate={{ y: [0, -10, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="text-6xl"
-        >
-          🐝
-        </motion.p>
-        <h1 className="text-3xl font-bold text-primary">Spelling Bee</h1>
+        <BeeBuddy mood="welcome" size="lg" message="Let's spell!" />
+        <PageAvatar pose="home" size="lg" />
+        <h1 className="text-3xl font-bold text-primary">RalphyZ's Spelling Bee</h1>
         <p className="text-base-content/60 max-w-xs">
           Get started by adding a word list!
         </p>
@@ -232,7 +229,7 @@ export function HomePage() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 border-l-4 border-l-warning/30 pl-2">
             {activities.map((act) => {
               const hlOn = !!highlightModes[act.highlightKey]
               return (
@@ -291,8 +288,9 @@ export function HomePage() {
   return (
     <div className="space-y-6">
       <div className="text-center space-y-2">
-        <PageAvatar pose="home" size="xl" />
-        <h1 className="text-2xl font-bold text-primary">Pick a List</h1>
+        <BeeBuddy mood="welcome" size="lg" message="Let's spell!" />
+        <PageAvatar pose="home" size="lg" />
+        <h1 className="text-2xl font-bold text-primary">Pick Your Hive</h1>
       </div>
 
       {state.currentUserId && (

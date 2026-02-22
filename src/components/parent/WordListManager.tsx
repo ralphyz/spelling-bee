@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { useApp } from '../../context/AppContext'
+import { useApp, filterVisibleLists } from '../../context/AppContext'
 import { useSpeech } from '../../hooks/useSpeech'
 import { fetchWordData } from '../../utils/audioUtils'
 import type { WordList, WordEntry } from '../../types'
@@ -15,6 +15,8 @@ export function WordListManager() {
   const [editDefValue, setEditDefValue] = useState('')
   const [backfilling, setBackfilling] = useState<string | null>(null)
   const [backfillProgress, setBackfillProgress] = useState(0)
+  const [editingPinListId, setEditingPinListId] = useState<string | null>(null)
+  const [listPinValue, setListPinValue] = useState('')
   const { speak } = useSpeech()
 
   const handleDelete = (list: WordList) => {
@@ -146,7 +148,15 @@ export function WordListManager() {
     return dupes
   }
 
-  if (state.wordLists.length === 0) {
+  const visibleLists = filterVisibleLists(state.wordLists, state)
+
+  const handleSetListPin = (list: WordList, pin: string) => {
+    dispatch({ type: 'UPDATE_LIST', payload: { ...list, pin: pin || undefined, updatedAt: Date.now() } })
+    setEditingPinListId(null)
+    setListPinValue('')
+  }
+
+  if (visibleLists.length === 0) {
     return (
       <div className="text-center text-base-content/50 py-8">
         <p className="text-4xl mb-2">📚</p>
@@ -158,7 +168,7 @@ export function WordListManager() {
   return (
     <div className="space-y-3">
       <h3 className="font-bold text-lg">Your Lists</h3>
-      {state.wordLists.map((list) => {
+      {visibleLists.map((list) => {
         const expanded = expandedId === list.id
         const dupCount = getDupCount(list)
         const missingDefs = getMissingDefCount(list)
@@ -232,6 +242,62 @@ export function WordListManager() {
                 />
                 <span className="text-xs text-base-content/60">Practice before quiz</span>
               </label>
+
+              {state.isAdmin && (
+                <div className="flex items-center gap-2">
+                  {editingPinListId === list.id ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="text"
+                        maxLength={10}
+                        placeholder="PIN (6-10 chars)"
+                        value={listPinValue}
+                        onChange={(e) => setListPinValue(e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 10))}
+                        className="input input-bordered input-xs w-28 rounded-lg"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && listPinValue.length >= 6) handleSetListPin(list, listPinValue)
+                          if (e.key === 'Escape') setEditingPinListId(null)
+                        }}
+                      />
+                      <button
+                        className="btn btn-xs btn-primary rounded-lg"
+                        onClick={() => handleSetListPin(list, listPinValue)}
+                        disabled={listPinValue.length > 0 && listPinValue.length < 6}
+                      >
+                        Save
+                      </button>
+                      {list.pin && (
+                        <button
+                          className="btn btn-xs btn-ghost text-error rounded-lg"
+                          onClick={() => handleSetListPin(list, '')}
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        className="btn btn-xs btn-ghost rounded-lg"
+                        onClick={() => setEditingPinListId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="flex items-center gap-1 text-xs text-base-content/40 hover:text-base-content/60 transition-colors"
+                      onClick={() => {
+                        setEditingPinListId(list.id)
+                        setListPinValue(list.pin || '')
+                      }}
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                      </svg>
+                      PIN: {list.pin || 'none'}
+                    </button>
+                  )}
+                </div>
+              )}
 
               {isBackfilling && (
                 <div className="flex items-center gap-2">

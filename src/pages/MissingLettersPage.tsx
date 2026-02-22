@@ -8,7 +8,7 @@ import { MissingLettersCard } from '../components/missingLetters/MissingLettersC
 import { ProgressBar } from '../components/shared/ProgressBar'
 import { CelebrationOverlay } from '../components/shared/CelebrationOverlay'
 import { EncouragementOverlay } from '../components/shared/EncouragementOverlay'
-import { PageAvatar } from '../components/shared/PageAvatar'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
 import type { AchievementDef } from '../utils/achievements'
 import { computeEarnedAchievementIds, getNewlyEarnedAchievements } from '../utils/achievements'
 import { uuid } from '../utils/uuid'
@@ -165,14 +165,8 @@ export function MissingLettersPage() {
   if (session.phase === 'done') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
-        <motion.p
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="text-6xl"
-        >
-          🌟
-        </motion.p>
-        <h2 className="text-2xl font-bold">Missing Letters Complete!</h2>
+        <BeeBuddy mood="celebrate" size="xl" message="Honey of a Session!" />
+        <h2 className="text-2xl font-bold">Honey of a Session!</h2>
         <p className="text-base-content/60">Great job filling in the blanks!</p>
 
         {newAchievements.length > 0 && (
@@ -236,7 +230,7 @@ export function MissingLettersPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <PageAvatar pose="quiz" size="lg" />
+      <BeeBuddy mood="encourage" size="sm" />
       <p className="text-center text-sm font-semibold text-base-content/50 tracking-wide">{activeList.name}</p>
       <div className="flex items-center gap-2">
         <div className="flex-1">

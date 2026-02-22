@@ -6,13 +6,53 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
-import type { AppState, AppAction, AppSettings, SessionRecord } from '../types'
+import type { AppState, AppAction, AppSettings, SessionRecord, WordList } from '../types'
 import { applyTheme, DEFAULT_THEME } from '../utils/themes'
+
+export function filterVisibleLists(wordLists: WordList[], state: AppState): WordList[] {
+  if (state.isAdmin) return wordLists
+  return wordLists.filter((l) => !l.pin || l.pin === state.authenticatedPin)
+}
 
 const defaultSettings: AppSettings = {
   learnWordCount: 5,
   quizWordCount: 5,
   heatmapLevels: 3,
+}
+
+const AUTH_STORAGE_KEY = 'spelling-bee-auth'
+const AUTH_TTL_MS = 48 * 60 * 60 * 1000 // 48 hours
+
+interface StoredAuth {
+  pin: string
+  userIds: string[]
+  isAdmin: boolean
+  timestamp: number
+  sessionVersion?: number
+}
+
+function getStoredAuth(): StoredAuth | null {
+  try {
+    const raw = localStorage.getItem(AUTH_STORAGE_KEY)
+    if (!raw) return null
+    const auth = JSON.parse(raw) as StoredAuth
+    if (Date.now() - auth.timestamp > AUTH_TTL_MS) {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      return null
+    }
+    return auth
+  } catch { return null }
+}
+
+function setStoredAuth(pin: string, userIds: string[], isAdmin: boolean, sessionVersion?: number) {
+  try {
+    const auth: StoredAuth = { pin, userIds, isAdmin, timestamp: Date.now(), sessionVersion }
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(auth))
+  } catch { /* ignore */ }
+}
+
+function clearStoredAuth() {
+  try { localStorage.removeItem(AUTH_STORAGE_KEY) } catch { /* ignore */ }
 }
 
 function getLocalUserId(): string | null {
@@ -28,6 +68,12 @@ function setLocalUserId(userId: string | null) {
   } catch { /* ignore */ }
 }
 
+const storedAuth = getStoredAuth()
+// Refresh the 48-hour window on every app load
+if (storedAuth) {
+  setStoredAuth(storedAuth.pin, storedAuth.userIds, storedAuth.isAdmin)
+}
+
 const initialState: AppState = {
   wordLists: [],
   progress: {},
@@ -35,6 +81,9 @@ const initialState: AppState = {
   settings: defaultSettings,
   users: [],
   currentUserId: getLocalUserId(),
+  authenticatedPin: storedAuth?.pin ?? null,
+  authenticatedUserIds: storedAuth?.userIds ?? [],
+  isAdmin: storedAuth?.isAdmin ?? false,
 }
 
 function reducer(state: AppState, action: AppAction): AppState {
@@ -245,12 +294,37 @@ function reducer(state: AppState, action: AppAction): AppState {
       }
     }
 
+    case 'SET_AUTH': {
+      const { pin, userIds, isAdmin, sessionVersion } = action.payload
+      setStoredAuth(pin, userIds, isAdmin, sessionVersion)
+      return {
+        ...state,
+        authenticatedPin: pin,
+        authenticatedUserIds: userIds,
+        isAdmin,
+      }
+    }
+
+    case 'CLEAR_AUTH':
+      setLocalUserId(null)
+      clearStoredAuth()
+      return {
+        ...state,
+        authenticatedPin: null,
+        authenticatedUserIds: [],
+        isAdmin: false,
+        currentUserId: null,
+      }
+
     case 'LOAD_STATE':
       return {
         ...action.payload,
         settings: action.payload.settings || defaultSettings,
         users: action.payload.users || [],
-        currentUserId: getLocalUserId() ?? action.payload.currentUserId ?? null,
+        currentUserId: getLocalUserId(),
+        authenticatedPin: state.authenticatedPin,
+        authenticatedUserIds: state.authenticatedUserIds,
+        isAdmin: state.isAdmin,
       }
 
     default:
@@ -326,13 +400,76 @@ export async function fetchSessions(opts?: { listId?: string; userId?: string })
   return []
 }
 
+export async function verifyPin(pin: string): Promise<{ userIds: string[]; isAdmin: boolean; sessionVersion?: number } | { error: string; retryAfter?: number; cooldown?: number }> {
+  try {
+    const res = await fetch('/api/auth/verify-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    })
+    return await res.json()
+  } catch {
+    return { error: 'network' }
+  }
+}
+
+export async function setUserPin(userId: string, pin: string, adminPin: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/set-pin', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, pin, adminPin }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function changeAdminPin(currentPin: string, newPin: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/change-admin-pin', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPin, newPin }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+export async function invalidateSessions(adminPinValue: string): Promise<boolean> {
+  try {
+    const res = await fetch('/api/auth/invalidate-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adminPin: adminPinValue }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+async function checkSessionVersion(): Promise<number | null> {
+  try {
+    const res = await fetch('/api/auth/session-version')
+    if (res.ok) {
+      const data = await res.json()
+      return data.sessionVersion
+    }
+  } catch { /* ignore */ }
+  return null
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const initialized = useRef(false)
   const skipSync = useRef(false)
   const serverHadData = useRef(false)
 
-  // Load state from server on mount
+  // Load state from server on mount + validate session version
   useEffect(() => {
     fetchState().then((loaded) => {
       if (loaded && loaded.wordLists.length > 0) {
@@ -342,6 +479,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
       initialized.current = true
     })
+    // Check if stored session is still valid
+    const auth = getStoredAuth()
+    if (auth?.sessionVersion) {
+      checkSessionVersion().then((serverVersion) => {
+        if (serverVersion && serverVersion !== auth.sessionVersion) {
+          clearStoredAuth()
+          setLocalUserId(null)
+          dispatch({ type: 'CLEAR_AUTH' })
+        }
+      })
+    }
   }, [])
 
   // Push state to server on changes (after initial load)
@@ -365,6 +513,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Poll for updates from server every 3 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
+      // Check session validity
+      if (state.authenticatedPin) {
+        const auth = getStoredAuth()
+        if (auth?.sessionVersion) {
+          const serverVersion = await checkSessionVersion()
+          if (serverVersion && serverVersion !== auth.sessionVersion) {
+            clearStoredAuth()
+            setLocalUserId(null)
+            dispatch({ type: 'CLEAR_AUTH' })
+            return
+          }
+        }
+      }
+
       const remote = await fetchState()
       if (!remote) return
       // Only update if server has different word lists or users
@@ -377,7 +539,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     }, 3000)
     return () => clearInterval(interval)
-  }, [state.wordLists, state.users])
+  }, [state.wordLists, state.users, state.authenticatedPin])
 
   return (
     <AppContext.Provider value={{ state, dispatch }}>

@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion } from 'motion/react'
 import { useApp } from '../../context/AppContext'
+import type { WordList } from '../../types'
 import { useDictionary } from '../../hooks/useDictionary'
 import { parseWordList } from '../../utils/wordParser'
 import { uuid } from '../../utils/uuid'
 
 export function WordListForm() {
-  const { dispatch } = useApp()
+  const { state, dispatch } = useApp()
   const { fetchWords, loading, progress } = useDictionary()
   const [name, setName] = useState('')
   const [wordsInput, setWordsInput] = useState('')
@@ -28,12 +29,13 @@ export function WordListForm() {
 
     const words = await fetchWords(parsed)
 
-    const list = {
+    const list: WordList = {
       id: uuid(),
       name: trimmedName,
       words,
       createdAt: Date.now(),
       updatedAt: Date.now(),
+      ...(state.authenticatedPin && !state.isAdmin ? { pin: state.authenticatedPin } : {}),
     }
 
     dispatch({ type: 'ADD_LIST', payload: list })

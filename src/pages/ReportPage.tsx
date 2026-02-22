@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { useApp, fetchSessions } from '../context/AppContext'
+import { useApp, fetchSessions, filterVisibleLists } from '../context/AppContext'
 import { getAvatarSrc } from '../utils/themes'
 import { ACHIEVEMENTS, CATEGORIES, computeEarnedAchievementIds } from '../utils/achievements'
 import { MISCHIEVEMENTS, getMischiefStats, computeEarnedMischievementIds } from '../utils/mishchievements'
-import type { SessionRecord, WordProgress, UserProfile } from '../types'
+import type { SessionRecord, WordProgress, UserProfile, WordList } from '../types'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
+import { PageAvatar } from '../components/shared/PageAvatar'
 
 interface UserStats {
   user: UserProfile
@@ -25,6 +27,7 @@ function computeUserStats(
   user: UserProfile,
   state: ReturnType<typeof useApp>['state'],
   sessions: SessionRecord[],
+  wordLists: WordList[],
 ): UserStats {
   const mastery = (state.settings.heatmapLevels || 3) - 1
   let totalWords = 0
@@ -40,7 +43,7 @@ function computeUserStats(
     (s) => s.userId === user.id || (!s.userId && sessions.length > 0)
   )
 
-  for (const list of state.wordLists) {
+  for (const list of wordLists) {
     let listPracticed = 0
     let listMissed = 0
     let listMastered = 0
@@ -329,8 +332,12 @@ export function ReportPage() {
     )
   }
 
-  const allStats = state.users.map((user) =>
-    computeUserStats(user, state, sessions)
+  // Only show profiles accessible under the current PIN
+  const visibleUsers = state.users.filter((u) => state.authenticatedUserIds.includes(u.id))
+  const visibleLists = filterVisibleLists(state.wordLists, state)
+
+  const allStats = visibleUsers.map((user) =>
+    computeUserStats(user, state, sessions, visibleLists)
   )
 
   const totalMastered = allStats.reduce((sum, s) => sum + s.mastered, 0)
@@ -340,9 +347,11 @@ export function ReportPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="text-center">
-        <h1 className="text-2xl font-bold text-primary">Family Report</h1>
+        <BeeBuddy mood="celebrate" size="md" />
+        <PageAvatar pose="progress" size="lg" />
+        <h1 className="text-2xl font-bold text-primary mt-2">Family Report</h1>
         <p className="text-sm text-base-content/60 mt-1">
-          {state.users.length} {state.users.length === 1 ? 'speller' : 'spellers'} &middot; {totalSessions} sessions &middot; {totalMastered}/{totalWords} mastered
+          {visibleUsers.length} {visibleUsers.length === 1 ? 'speller' : 'spellers'} &middot; {totalSessions} sessions &middot; {totalMastered}/{totalWords} mastered
         </p>
       </div>
 

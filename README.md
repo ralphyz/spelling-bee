@@ -1,4 +1,4 @@
-# Spelling Bee
+# RalphyZ's Spelling Bee
 
 A kid-friendly spelling practice app built for daily spelling homework and test prep. Supports multiple users, word lists, dictionary lookups with audio pronunciations, and a variety of study modes.
 
@@ -18,6 +18,21 @@ Built with React 19, TypeScript, Vite 7, TailwindCSS 4, DaisyUI 5, and Bun.
 ### Highlight Mode
 
 Each activity has an optional highlight toggle (lightbulb icon) that shows real-time green/red letter feedback as you type. When enabled on Quiz, results count as practice instead -- a warning dialog explains this before you start.
+
+### PIN-Based Access Control
+
+The app uses a simple PIN system to separate families or classrooms sharing the same server.
+
+- **Parent/Admin PIN** -- Set via the `ADMIN_PIN` environment variable (default: `123456`). The admin PIN grants access to all user profiles and all word lists. Admin login is restricted to the server's local network (/16 subnet).
+- **User PINs** -- Each user profile can be assigned a PIN (6-10 alphanumeric characters). Logging in with a user PIN shows only the profiles and word lists associated with that PIN.
+- **Admin capabilities** -- Set or reset PINs on any user profile, change the admin PIN at runtime, assign or change the PIN on any word list, invalidate all active sessions.
+- **Session persistence** -- Auth sessions persist for 48 hours in the browser, surviving refreshes and tab closes. The 48-hour window resets on every app load. Admins can force-logout all users with the "Invalidate All Sessions" button.
+- **Rate limiting** -- Wrong PINs trigger a 3-second cooldown. After 3 failures from the same IP, a 10-minute block. After 5 global failures within 1 minute, all non-local IPs are blocked for 10 minutes.
+- **Runtime PIN changes** -- The admin can change their own PIN from the login screen. The new PIN is persisted in `admin-pin.json` (gitignored).
+
+> **Note:** This is not a security system. PINs are transmitted in plain text and stored without hashing. It is designed to keep kids in their own profiles, not to protect sensitive data.
+
+![PIN Login](docs/screenshots/pin-login.png)
 
 ### Multi-User Support
 
@@ -51,8 +66,9 @@ Each activity has an optional highlight toggle (lightbulb icon) that shows real-
 - PWA-ready for mobile home screen installation
 - List archiving to keep the home page tidy
 - Sortable word lists (by name, date, or word count)
-- Parent/teacher page for managing word lists
-- Report page for reviewing progress across all users
+- Parent/teacher page for managing word lists (PIN-scoped)
+- Report page for reviewing progress across all users (filtered by PIN)
+- Word lists can be assigned to a PIN so each family/group sees only their lists
 - Animated bee mascot with different poses per page
 
 ## Screenshots
@@ -68,6 +84,10 @@ Each activity has an optional highlight toggle (lightbulb icon) that shows real-
 | Options | User Profile |
 |---------|--------------|
 | ![Options](docs/screenshots/options.png) | ![Profile](docs/screenshots/profile.png) |
+
+| PIN Login | User Selection | Word List Management |
+|-----------|----------------|----------------------|
+| ![PIN Login](docs/screenshots/pin-login.png) | ![User Selection](docs/screenshots/user-selection.png) | ![Word Lists](docs/screenshots/word-lists.png) |
 
 ## Prerequisites
 
@@ -103,12 +123,14 @@ Each activity has an optional highlight toggle (lightbulb icon) that shows real-
    cp .env.example .env
    ```
 
-   Edit `.env` and replace the placeholder values with your Merriam-Webster API keys. Register for free keys at [dictionaryapi.com](https://dictionaryapi.com/register/index). You'll need to request keys for each dictionary you want to use:
+   Edit `.env` and replace the placeholder values with your Merriam-Webster API keys and set your admin PIN. Register for free keys at [dictionaryapi.com](https://dictionaryapi.com/register/index). You'll need to request keys for each dictionary you want to use:
 
    - Elementary Dictionary (Grades 3-5)
    - Intermediate Dictionary (Grades 6-8)
    - Collegiate Dictionary
    - Learner's Dictionary
+
+   Also set `ADMIN_PIN` to a 6-10 character alphanumeric PIN for parent/admin access (default: `123456`).
 
 5. **Start the API server**
 
@@ -116,7 +138,7 @@ Each activity has an optional highlight toggle (lightbulb icon) that shows real-
    bun run server
    ```
 
-   This starts the backend API on port 3001. It stores word lists in `data.json` and session records in `sessions.json`.
+   This starts the backend API on port 3001. It stores word lists in `data.json`, session records in `sessions.json`, and the runtime admin PIN in `admin-pin.json`. All three are gitignored.
 
 6. **Start the dev server** (in a separate terminal)
 
@@ -191,13 +213,16 @@ The built files will be in the `dist/` directory. Serve them with any static fil
 
 ```
 spelling-bee/
-  server.ts              # Bun API server (port 3001)
+  server.ts              # Bun API server (port 3001) — includes auth endpoints
+  data.json              # Word lists and user profiles (gitignored)
+  sessions.json          # Session history (gitignored)
+  admin-pin.json         # Runtime admin PIN (gitignored)
   src/
     App.tsx              # Routes and app shell
     context/AppContext.tsx  # Global state (React Context + useReducer)
     pages/               # Page components (Home, Practice, Learn, Quiz, etc.)
     components/          # UI components organized by feature
-      layout/            # AppShell, BottomNav
+      layout/            # AppShell, BottomNav, UserGate (PIN login)
       shared/            # LetterTileRow, Keyboard, PageAvatar, etc.
       learn/             # Learn mode components
       practice/          # Practice mode components

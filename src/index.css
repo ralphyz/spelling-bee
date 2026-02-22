@@ -290,3 +290,20 @@ input, textarea {
   user-select: text;
   -webkit-user-select: text;
 }
+
+.honeycomb-bg {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='52' viewBox='0 0 60 52'%3E%3Cpolygon points='30,1 55,14 55,38 30,51 5,38 5,14' fill='none' stroke='currentColor' stroke-opacity='0.09' stroke-width='1'/%3E%3C/svg%3E");
+}
+
+.hex-badge {
+  clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+  padding: 0.35rem 0.75rem;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

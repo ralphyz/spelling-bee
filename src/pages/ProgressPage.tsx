@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion } from 'motion/react'
-import { useApp, fetchSessions } from '../context/AppContext'
+import { useApp, fetchSessions, filterVisibleLists } from '../context/AppContext'
 import type { SessionRecord, HeatmapLevels, WordList } from '../types'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
 import { PageAvatar } from '../components/shared/PageAvatar'
 import { ACHIEVEMENTS, CATEGORIES, computeEarnedAchievementIds } from '../utils/achievements'
 import { MISCHIEVEMENTS, getMischiefStats, computeEarnedMischievementIds } from '../utils/mishchievements'
@@ -201,7 +202,7 @@ function ListCard({ list, sessions, heatmapMode, heatmapLevels }: {
             const status = statuses.get(w.word) ?? 'not-tried'
             const color = getHeatmapColor(status, heatmapLevels)
             return (
-              <span key={w.word} className={`badge ${color} badge-sm`}>
+              <span key={w.word} className={`${color} hex-badge text-xs font-semibold inline-flex items-center justify-center`}>
                 {w.word}
               </span>
             )
@@ -222,8 +223,9 @@ export function ProgressPage() {
 
   const currentUser = state.users.find((u) => u.id === state.currentUserId)
   const deprioritized = currentUser?.deprioritizedLists || []
-  const activeLists = state.wordLists.filter((l) => !deprioritized.includes(l.id))
-  const archivedLists = state.wordLists.filter((l) => deprioritized.includes(l.id))
+  const visibleLists = filterVisibleLists(state.wordLists, state)
+  const activeLists = visibleLists.filter((l) => !deprioritized.includes(l.id))
+  const archivedLists = visibleLists.filter((l) => deprioritized.includes(l.id))
 
   useEffect(() => {
     fetchSessions(state.currentUserId ? { userId: state.currentUserId } : undefined).then((s) => {
@@ -233,7 +235,7 @@ export function ProgressPage() {
         const sorted = [...s].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         const lastListId = sorted[0].listId
         // Only select if the list still exists
-        if (state.wordLists.some((l) => l.id === lastListId)) {
+        if (visibleLists.some((l) => l.id === lastListId)) {
           setSelected(lastListId)
         } else {
           setSelected('all')
@@ -262,7 +264,7 @@ export function ProgressPage() {
   )
   const mischiefEarnedCount = earnedMischiefIds.size
 
-  if (state.wordLists.length === 0) {
+  if (visibleLists.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center gap-4">
         <p className="text-4xl">⭐</p>
@@ -277,19 +279,22 @@ export function ProgressPage() {
   if (selected === 'pending') return null
 
   const isSummary = selected === 'all' || selected === 'active'
-  const summaryLists = selected === 'all' ? state.wordLists : activeLists
-  const selectedList = !isSummary ? state.wordLists.find((l) => l.id === selected) : null
+  const summaryLists = selected === 'all' ? visibleLists : activeLists
+  const selectedList = !isSummary ? visibleLists.find((l) => l.id === selected) : null
 
   const filteredSessions = isSummary
     ? (selected === 'all' ? sessions : sessions.filter((s) => activeLists.some((l) => l.id === s.listId || l.name === s.listName)))
     : sessions.filter((s) => {
-        const list = state.wordLists.find((l) => l.id === selected)
+        const list = visibleLists.find((l) => l.id === selected)
         return s.listId === selected || (list && s.listName === list.name)
       })
 
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
-      <PageAvatar pose="progress" size="xl" />
+      <div className="text-center space-y-2">
+        <BeeBuddy mood="celebrate" size="lg" message="Look how far you've come!" />
+        <PageAvatar pose="progress" size="lg" />
+      </div>
 
       <div className="flex justify-center">
         <div className="join">

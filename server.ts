@@ -1,9 +1,63 @@
 import { file } from 'bun'
+import { networkInterfaces } from 'os'
 
 const DATA_FILE = './data.json'
 const SESSIONS_FILE = './sessions.json'
+const ADMIN_PIN_FILE = './admin-pin.json'
+
+async function loadAdminPin(): Promise<string> {
+  try {
+    const f = file(ADMIN_PIN_FILE)
+    if (await f.exists()) {
+      const data = await f.json()
+      if (data.pin) return data.pin
+    }
+  } catch { /* ignore */ }
+  return process.env.ADMIN_PIN || '123456'
+}
+
+async function saveAdminPin(pin: string) {
+  await Bun.write(ADMIN_PIN_FILE, JSON.stringify({ pin }, null, 2))
+}
+
+let adminPin = process.env.ADMIN_PIN || '123456'
+// Load persisted admin PIN on startup
+loadAdminPin().then((p) => { adminPin = p })
+
+// Session version — bumping this invalidates all client sessions
+let sessionVersion = Date.now()
 
 const defaultSettings = { learnWordCount: 5, quizWordCount: 5 }
+
+// Rate limiting for PIN auth
+const rateLimits = new Map<string, { failures: number; blockedUntil: number; lastFailure: number }>()
+
+// Global lockdown: 5 failures from any source within 1 minute → block non-local IPs for 10 minutes
+const globalFailures: number[] = [] // timestamps of recent failures
+let globalBlockUntil = 0
+
+function getServerSubnet(): string | null {
+  const ifaces = networkInterfaces()
+  for (const addrs of Object.values(ifaces)) {
+    if (!addrs) continue
+    for (const addr of addrs) {
+      if (addr.family === 'IPv4' && !addr.internal) {
+        // Return first two octets for /16 match (e.g. "10.0" from "10.0.0.235")
+        const parts = addr.address.split('.')
+        return `${parts[0]}.${parts[1]}.`
+      }
+    }
+  }
+  return null
+}
+
+const localSubnet = getServerSubnet()
+
+function isLocalIp(ip: string): boolean {
+  if (ip === '127.0.0.1' || ip === '::1' || ip === 'unknown') return true
+  if (localSubnet && ip.startsWith(localSubnet)) return true
+  return false
+}
 
 async function loadState() {
   try {
@@ -101,6 +155,122 @@ const server = Bun.serve({
           await saveSessions([])
         }
         return new Response(JSON.stringify({ ok: true }), { headers })
+      }
+    }
+
+    if (url.pathname === '/api/auth/verify-pin') {
+      if (req.method === 'POST') {
+        const clientIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+        const now = Date.now()
+
+        // Global lockdown: block non-local IPs
+        if (globalBlockUntil > now && !isLocalIp(clientIp)) {
+          const retryAfter = Math.ceil((globalBlockUntil - now) / 1000)
+          return new Response(JSON.stringify({ error: 'blocked', retryAfter }), { status: 429, headers })
+        }
+
+        const limit = rateLimits.get(clientIp)
+
+        // Check if IP is blocked
+        if (limit) {
+          if (limit.blockedUntil > now) {
+            const retryAfter = Math.ceil((limit.blockedUntil - now) / 1000)
+            return new Response(JSON.stringify({ error: 'blocked', retryAfter }), { status: 429, headers })
+          }
+          // Check cooldown (3 seconds after last failure)
+          if (limit.lastFailure && now - limit.lastFailure < 3000) {
+            const retryAfter = Math.ceil((limit.lastFailure + 3000 - now) / 1000)
+            return new Response(JSON.stringify({ error: 'cooldown', retryAfter }), { status: 429, headers })
+          }
+        }
+
+        const { pin } = await req.json() as { pin: string }
+        const state = await loadState() as { users: Array<{ id: string; pin?: string }> }
+
+        // Check admin PIN (only from local network)
+        if (pin === adminPin) {
+          if (!isLocalIp(clientIp)) {
+            return new Response(JSON.stringify({ error: 'invalid', cooldown: 3 }), { status: 401, headers })
+          }
+          rateLimits.delete(clientIp)
+          const userIds = state.users.map((u) => u.id)
+          return new Response(JSON.stringify({ userIds, isAdmin: true, sessionVersion }), { headers })
+        }
+
+        // Check user PINs
+        const matching = state.users.filter((u) => u.pin === pin)
+        if (matching.length > 0) {
+          rateLimits.delete(clientIp)
+          const userIds = matching.map((u) => u.id)
+          return new Response(JSON.stringify({ userIds, isAdmin: false, sessionVersion }), { headers })
+        }
+
+        // Wrong PIN — record per-IP failure
+        const current = rateLimits.get(clientIp) || { failures: 0, blockedUntil: 0, lastFailure: 0 }
+        current.failures += 1
+        current.lastFailure = now
+        if (current.failures >= 3) {
+          current.blockedUntil = now + 10 * 60 * 1000 // 10 minutes
+        }
+        rateLimits.set(clientIp, current)
+
+        // Record global failure and check for lockdown
+        globalFailures.push(now)
+        // Prune failures older than 1 minute
+        while (globalFailures.length > 0 && globalFailures[0] < now - 60_000) {
+          globalFailures.shift()
+        }
+        if (globalFailures.length >= 5) {
+          globalBlockUntil = now + 10 * 60 * 1000 // 10-minute global lockdown
+          globalFailures.length = 0 // reset so it doesn't re-trigger immediately
+        }
+
+        return new Response(JSON.stringify({ error: 'invalid', cooldown: 3 }), { status: 401, headers })
+      }
+    }
+
+    if (url.pathname === '/api/auth/set-pin') {
+      if (req.method === 'PUT') {
+        const { userId, pin, adminPin: providedAdminPin } = await req.json() as { userId: string; pin: string; adminPin: string }
+        if (providedAdminPin !== adminPin) {
+          return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers })
+        }
+        const state = await loadState() as { users: Array<{ id: string; pin?: string }> }
+        const user = state.users.find((u) => u.id === userId)
+        if (user) {
+          user.pin = pin
+          await saveState(state)
+        }
+        return new Response(JSON.stringify({ ok: true }), { headers })
+      }
+    }
+
+    if (url.pathname === '/api/auth/change-admin-pin') {
+      if (req.method === 'PUT') {
+        const { currentPin, newPin } = await req.json() as { currentPin: string; newPin: string }
+        if (currentPin !== adminPin) {
+          return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers })
+        }
+        adminPin = newPin
+        await saveAdminPin(newPin)
+        return new Response(JSON.stringify({ ok: true }), { headers })
+      }
+    }
+
+    if (url.pathname === '/api/auth/session-version') {
+      if (req.method === 'GET') {
+        return new Response(JSON.stringify({ sessionVersion }), { headers })
+      }
+    }
+
+    if (url.pathname === '/api/auth/invalidate-sessions') {
+      if (req.method === 'POST') {
+        const { adminPin: providedAdminPin } = await req.json() as { adminPin: string }
+        if (providedAdminPin !== adminPin) {
+          return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers })
+        }
+        sessionVersion = Date.now()
+        return new Response(JSON.stringify({ ok: true, sessionVersion }), { headers })
       }
     }
 

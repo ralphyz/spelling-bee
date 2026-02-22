@@ -2,6 +2,7 @@ export interface UserProfile {
   id: string
   name: string
   avatar: string
+  pin?: string
   theme?: string
   deprioritizedLists?: string[]
   listSortBy?: 'name' | 'date' | 'wordCount'
@@ -59,6 +60,7 @@ export interface WordList {
   createdAt: number
   updatedAt: number
   requirePractice?: boolean
+  pin?: string
 }
 
 export interface WordProgress {
@@ -80,6 +82,9 @@ export interface AppState {
   settings: AppSettings
   users: UserProfile[]
   currentUserId: string | null
+  authenticatedPin: string | null
+  authenticatedUserIds: string[]
+  isAdmin: boolean
 }
 
 export type AppAction =
@@ -103,6 +108,8 @@ export type AppAction =
   | { type: 'SET_WORD_COUNTS'; payload: { userId: string; learnWordCount?: WordCountOption; quizWordCount?: WordCountOption; practiceWordCount?: WordCountOption; missingLettersWordCount?: WordCountOption } }
   | { type: 'TOGGLE_HIGHLIGHT_MODE'; payload: { userId: string; activity: 'practice' | 'learn' | 'quiz' | 'missingLetters' } }
   | { type: 'TOGGLE_SHOW_ARCHIVED'; payload: { userId: string } }
+  | { type: 'SET_AUTH'; payload: { pin: string; userIds: string[]; isAdmin: boolean; sessionVersion?: number } }
+  | { type: 'CLEAR_AUTH' }
 
 export type LearnPhase = 'study' | 'practice' | 'feedback' | 'done'
 

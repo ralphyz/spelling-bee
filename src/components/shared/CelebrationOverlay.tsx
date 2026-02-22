@@ -10,7 +10,7 @@ const confettiPieces = Array.from({ length: 20 }, (_, i) => ({
   id: i,
   x: Math.random() * 100,
   delay: Math.random() * 0.5,
-  emoji: ['🌟', '⭐', '✨', '🎉', '🐝'][i % 5],
+  emoji: ['🌟', '⭐', '✨', '🎉', '🐝', '🍯', '⬡', '🐝'][i % 8],
 }))
 
 export function CelebrationOverlay({ onDone }: CelebrationOverlayProps) {

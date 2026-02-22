@@ -9,7 +9,7 @@ import { QuizSpelling } from '../components/quiz/QuizSpelling'
 import { QuizResult } from '../components/quiz/QuizResult'
 import { QuizSummary } from '../components/quiz/QuizSummary'
 import { ProgressBar } from '../components/shared/ProgressBar'
-import { PageAvatar } from '../components/shared/PageAvatar'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
 import type { AchievementDef } from '../utils/achievements'
 import { computeEarnedAchievementIds, getNewlyEarnedAchievements } from '../utils/achievements'
 import { uuid } from '../utils/uuid'
@@ -56,7 +56,6 @@ export function QuizPage() {
     removeLetter,
     submit,
     next,
-    reset,
   } = useQuizSession(sessionWords)
 
   const handleNext = useCallback(() => {
@@ -161,7 +160,7 @@ export function QuizPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      <PageAvatar pose="quiz" size="lg" />
+      <BeeBuddy mood={session.phase === 'prompt' ? 'thinking' : 'encourage'} size={session.phase === 'prompt' ? 'md' : 'sm'} message={session.phase === 'prompt' ? 'Listen carefully...' : undefined} />
       <p className="text-center text-sm font-semibold text-base-content/50 tracking-wide">{activeList.name}</p>
       <ProgressBar
         current={session.currentIndex}

@@ -17,6 +17,7 @@ lerna-debug.log*
 # App data (user data, session history)
 data.json
 sessions.json
+admin-pin.json
 *.sqlite
 *.db
 

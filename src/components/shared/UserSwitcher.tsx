@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useApp } from '../../context/AppContext'
+import { useApp, setUserPin } from '../../context/AppContext'
 import { AVATARS, getAvatarSrc, DEFAULT_AVATAR } from '../../utils/themes'
 import { uuid } from '../../utils/uuid'
 
@@ -14,6 +14,7 @@ export function UserSwitcher() {
   const ref = useRef<HTMLDivElement>(null)
 
   const currentUser = state.users.find((u) => u.id === state.currentUserId)
+  const visibleUsers = state.users.filter((u) => state.authenticatedUserIds.includes(u.id))
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -26,15 +27,35 @@ export function UserSwitcher() {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [open])
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!name.trim()) return
     const id = uuid()
     dispatch({ type: 'ADD_USER', payload: { id, name: name.trim(), avatar } })
+
+    // Auto-assign current session PIN (if not admin)
+    if (!state.isAdmin && state.authenticatedPin) {
+      await setUserPin(id, state.authenticatedPin, state.authenticatedPin)
+    }
+
     dispatch({ type: 'SET_CURRENT_USER', payload: id })
+    dispatch({
+      type: 'SET_AUTH',
+      payload: {
+        pin: state.authenticatedPin!,
+        userIds: [...state.authenticatedUserIds, id],
+        isAdmin: state.isAdmin,
+      },
+    })
     setName('')
     setAvatar(DEFAULT_AVATAR)
     setAdding(false)
     setOpen(false)
+  }
+
+  const handleLogout = () => {
+    dispatch({ type: 'CLEAR_AUTH' })
+    setOpen(false)
+    navigate('/')
   }
 
   const avatarSrc = currentUser ? getAvatarSrc(currentUser.avatar) : null
@@ -60,17 +81,19 @@ export function UserSwitcher() {
         <div className="absolute right-0 top-full mt-1 bg-base-200 rounded-2xl shadow-2xl border border-base-content/5 z-50 w-64 overflow-hidden">
           {!adding ? (
             <>
-              {state.users.length > 0 && (
+              {visibleUsers.length > 0 && (
                 <div className="px-3 pt-3 pb-1">
                   <p className="text-xs font-semibold text-base-content/40 uppercase tracking-wider">Users</p>
                 </div>
               )}
-              {state.users.map((u) => {
+              {visibleUsers.map((u) => {
                 const src = getAvatarSrc(u.avatar)
                 return (
-                  <button
+                  <div
                     key={u.id}
-                    className={`flex items-center gap-3 w-full px-3 py-2.5 hover:bg-base-300/50 active:bg-base-300 transition-colors ${
+                    role="button"
+                    tabIndex={0}
+                    className={`flex items-center gap-3 w-full px-3 py-2.5 hover:bg-base-300/50 active:bg-base-300 transition-colors cursor-pointer ${
                       u.id === state.currentUserId ? 'bg-primary/10' : ''
                     }`}
                     onClick={() => {
@@ -106,7 +129,7 @@ export function UserSwitcher() {
                         </>
                       )}
                     </div>
-                  </button>
+                  </div>
                 )
               })}
               <button
@@ -117,6 +140,15 @@ export function UserSwitcher() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M18 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0ZM3 19.235v-.11a6.375 6.375 0 0 1 12.75 0v.109A12.318 12.318 0 0 1 9.374 21c-2.331 0-4.512-.645-6.374-1.766Z" />
                 </svg>
                 <span className="text-base text-base-content/60">Add new user</span>
+              </button>
+              <button
+                className="flex items-center gap-3 w-full px-3 py-2.5 hover:bg-error/10 active:bg-error/20 transition-colors border-t border-base-content/5 text-error/70"
+                onClick={handleLogout}
+              >
+                <svg className="w-8 h-8 ml-0.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.25} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
+                </svg>
+                <span className="text-base">Log out</span>
               </button>
             </>
           ) : (

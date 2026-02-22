@@ -2,6 +2,7 @@ import { motion } from 'motion/react'
 import type { QuizResult as QuizResultType } from '../../types'
 import type { AchievementDef } from '../../utils/achievements'
 import type { MischievementDef } from '../../utils/mishchievements'
+import { BeeBuddy } from '../shared/BeeBuddy'
 
 interface QuizSummaryProps {
   results: QuizResultType[]
@@ -22,8 +23,12 @@ export function QuizSummary({ results, onHome, newAchievements, newMischievement
       className="space-y-6 text-center"
     >
       <div>
-        <p className="text-5xl mb-2">{pct >= 80 ? '🏆' : pct >= 50 ? '⭐' : '💪'}</p>
-        <h2 className="text-2xl font-bold">
+        <BeeBuddy
+          mood="celebrate"
+          size="xl"
+          message={pct >= 80 ? 'Buzz-worthy Quiz!' : pct >= 50 ? 'Keep buzzing!' : "You're learning!"}
+        />
+        <h2 className="text-2xl font-bold mt-2">
           {correct} out of {total}!
         </h2>
         <p className="text-base-content/60 mt-1">
@@ -31,7 +36,7 @@ export function QuizSummary({ results, onHome, newAchievements, newMischievement
             ? 'Amazing job!'
             : pct >= 50
               ? 'Good work! Keep practicing!'
-              : "You're learning! Let's try again!"}
+              : "Let's try again!"}
         </p>
       </div>
 

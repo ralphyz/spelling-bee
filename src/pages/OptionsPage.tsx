@@ -1,5 +1,7 @@
 import { motion } from 'motion/react'
 import { useApp } from '../context/AppContext'
+import { BeeBuddy } from '../components/shared/BeeBuddy'
+import { PageAvatar } from '../components/shared/PageAvatar'
 import type { HeatmapLevels } from '../types'
 import { ACHIEVEMENTS, CATEGORIES } from '../utils/achievements'
 import { MISCHIEVEMENTS } from '../utils/mishchievements'
@@ -34,13 +36,8 @@ export function OptionsPage() {
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
       <div className="text-center space-y-2">
-        <motion.p
-          animate={{ y: [0, -6, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="text-5xl"
-        >
-          🐝
-        </motion.p>
+        <BeeBuddy mood="neutral" size="md" />
+        <PageAvatar pose="options" size="lg" />
         <h1 className="text-2xl font-bold text-primary">Options</h1>
       </div>
 
