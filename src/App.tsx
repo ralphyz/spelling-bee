@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AppProvider } from './context/AppContext'
+import { AudioPreloader } from './components/shared/AudioPreloader'
 import { ErrorBoundary } from './components/shared/ErrorBoundary'
 import { AppShell } from './components/layout/AppShell'
 import { HomePage } from './pages/HomePage'
@@ -17,6 +18,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <AppProvider>
+        <AudioPreloader />
         <ErrorBoundary>
           <Routes>
             <Route element={<AppShell />}>

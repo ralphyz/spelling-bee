@@ -17,7 +17,7 @@ const LETTER_NAME_FALLBACKS: Record<string, string> = {
 
 const letterAudioUrls = new Map<string, string>()
 let capitalAudioUrl: string | null = null
-let fetchPromise: Promise<void> | null = null
+let preloaded = false
 
 async function fetchMWAudio(word: string): Promise<string | null> {
   if (!MW_ELEMENTARY.apiKey) return null
@@ -38,37 +38,48 @@ async function fetchMWAudio(word: string): Promise<string | null> {
   }
 }
 
-/** Fetch and cache audio URLs for all 26 letters + "capital". Call early to warm the cache. */
+/**
+ * Populate letter audio from static ElevenLabs files in /audio/letters/.
+ * Falls back to Merriam-Webster for any letter that fails to load.
+ */
 export function preloadLetterAudio(): Promise<void> {
-  if (fetchPromise) return fetchPromise
+  if (preloaded) return Promise.resolve()
+  preloaded = true
 
-  fetchPromise = (async () => {
-    const letters = 'abcdefghijklmnopqrstuvwxyz'.split('')
+  const letters = 'abcdefghijklmnopqrstuvwxyz'.split('')
 
-    // Fetch all letters + "capital" in parallel
-    const tasks = letters.map(async (letter) => {
-      // Try the letter itself first
-      let url = await fetchMWAudio(letter)
-
-      // If no audio, try the letter's spoken name (e.g. "tee" for "t")
-      if (!url && LETTER_NAME_FALLBACKS[letter]) {
-        url = await fetchMWAudio(LETTER_NAME_FALLBACKS[letter])
+  const tasks = letters.map(async (letter) => {
+    const staticUrl = `/audio/letters/${letter}.mp3`
+    // Verify the static file exists with a HEAD request
+    try {
+      const res = await fetch(staticUrl, { method: 'HEAD' })
+      if (res.ok) {
+        letterAudioUrls.set(letter, staticUrl)
+        return
       }
+    } catch { /* fall through to MW */ }
 
-      if (url) letterAudioUrls.set(letter, url)
-    })
+    // Fallback: Merriam-Webster
+    let url = await fetchMWAudio(letter)
+    if (!url && LETTER_NAME_FALLBACKS[letter]) {
+      url = await fetchMWAudio(LETTER_NAME_FALLBACKS[letter])
+    }
+    if (url) letterAudioUrls.set(letter, url)
+  })
 
-    // Also fetch "capital" audio
-    tasks.push(
-      fetchMWAudio('capital').then((url) => {
-        capitalAudioUrl = url
-      })
-    )
+  // Capital audio
+  tasks.push((async () => {
+    try {
+      const res = await fetch('/audio/letters/capital.mp3', { method: 'HEAD' })
+      if (res.ok) {
+        capitalAudioUrl = '/audio/letters/capital.mp3'
+        return
+      }
+    } catch { /* fall through */ }
+    capitalAudioUrl = await fetchMWAudio('capital')
+  })())
 
-    await Promise.allSettled(tasks)
-  })()
-
-  return fetchPromise
+  return Promise.allSettled(tasks).then(() => {})
 }
 
 /** Get the cached audio URL for a letter, or null if not available. */

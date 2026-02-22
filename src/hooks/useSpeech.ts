@@ -1,5 +1,6 @@
 import { useCallback, useRef, useEffect } from 'react'
 import { preloadLetterAudio, getLetterAudioUrl, getCapitalAudioUrl } from '../utils/letterAudio'
+import { isElevenLabsAvailable, fetchElevenLabsAudio, checkElevenLabsAvailability } from '../utils/elevenLabsAudio'
 
 function playAudioFile(
   url: string,
@@ -21,12 +22,24 @@ export function useSpeech() {
     preloadLetterAudio()
   }, [])
 
-  const speak = useCallback((word: string, audioUrl: string | null) => {
+  const speak = useCallback(async (word: string, audioUrl: string | null) => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
     }
     window.speechSynthesis.cancel()
+
+    // Ensure availability check has completed before reading the flag
+    await checkElevenLabsAvailability()
+    if (isElevenLabsAvailable()) {
+      const elUrl = await fetchElevenLabsAudio(word)
+      if (elUrl) {
+        const audio = new Audio(elUrl)
+        audioRef.current = audio
+        audio.play().catch(() => fallbackSpeak(word))
+        return
+      }
+    }
 
     if (audioUrl) {
       const audio = new Audio(audioUrl)
@@ -37,12 +50,20 @@ export function useSpeech() {
     }
   }, [])
 
-  const speakThenSpell = useCallback((word: string, audioUrl: string | null) => {
+  const speakThenSpell = useCallback(async (word: string, audioUrl: string | null) => {
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current = null
     }
     window.speechSynthesis.cancel()
+
+    // Resolve the best audio URL for the whole word
+    await checkElevenLabsAvailability()
+    let wordUrl = audioUrl
+    if (isElevenLabsAvailable()) {
+      const elUrl = await fetchElevenLabsAudio(word)
+      if (elUrl) wordUrl = elUrl
+    }
 
     const spellWithAudio = () => {
       const letters = word.split('')
@@ -50,7 +71,7 @@ export function useSpeech() {
 
       const playNext = () => {
         if (i >= letters.length) {
-          setTimeout(() => speak(word, audioUrl), 400)
+          setTimeout(() => speak(word, wordUrl), 400)
           return
         }
 
@@ -86,8 +107,8 @@ export function useSpeech() {
       setTimeout(playNext, 400)
     }
 
-    if (audioUrl) {
-      const audio = new Audio(audioUrl)
+    if (wordUrl) {
+      const audio = new Audio(wordUrl)
       audioRef.current = audio
       audio.addEventListener('ended', spellWithAudio)
       audio.play().catch(() => {

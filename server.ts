@@ -1,9 +1,24 @@
 import { file } from 'bun'
 import { networkInterfaces } from 'os'
+import { existsSync, mkdirSync } from 'fs'
+import { join } from 'path'
 
 const DATA_FILE = './data.json'
 const SESSIONS_FILE = './sessions.json'
 const ADMIN_PIN_FILE = './admin-pin.json'
+
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || ''
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || ''
+const TTS_CACHE_DIR = './tts-cache'
+
+// Ensure TTS cache directory exists
+if (!existsSync(TTS_CACHE_DIR)) mkdirSync(TTS_CACHE_DIR)
+
+/** Get a safe filename for a TTS cache entry. */
+function ttsCacheKey(text: string): string {
+  const safe = text.toLowerCase().replace(/[^a-z0-9]/g, '_')
+  return join(TTS_CACHE_DIR, `${safe}.mp3`)
+}
 
 async function loadAdminPin(): Promise<string> {
   try {
@@ -271,6 +286,73 @@ const server = Bun.serve({
         }
         sessionVersion = Date.now()
         return new Response(JSON.stringify({ ok: true, sessionVersion }), { headers })
+      }
+    }
+
+    // --- ElevenLabs TTS proxy ---
+
+    if (url.pathname === '/api/tts/status') {
+      if (req.method === 'GET') {
+        const available = !!(ELEVENLABS_API_KEY && ELEVENLABS_VOICE_ID)
+        return new Response(JSON.stringify({ available }), { headers })
+      }
+    }
+
+    if (url.pathname === '/api/tts') {
+      if (req.method === 'POST') {
+        if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) {
+          return new Response(JSON.stringify({ error: 'TTS not configured' }), { status: 503, headers })
+        }
+
+        const { text } = await req.json() as { text: string }
+        if (!text || typeof text !== 'string' || text.length > 200) {
+          return new Response(JSON.stringify({ error: 'Invalid text' }), { status: 400, headers })
+        }
+
+        const cachePath = ttsCacheKey(text)
+        const audioHeaders = {
+          ...headers,
+          'Content-Type': 'audio/mpeg',
+          'Cache-Control': 'public, max-age=86400',
+        }
+
+        // Serve from disk cache if available
+        const cached = file(cachePath)
+        if (await cached.exists()) {
+          return new Response(cached, { headers: audioHeaders })
+        }
+
+        try {
+          const elRes = await fetch(
+            `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_VOICE_ID}?output_format=mp3_44100_128`,
+            {
+              method: 'POST',
+              headers: {
+                'xi-api-key': ELEVENLABS_API_KEY,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                text,
+                model_id: 'eleven_turbo_v2_5',
+              }),
+            }
+          )
+
+          if (!elRes.ok) {
+            const errBody = await elRes.text().catch(() => '')
+            console.error(`ElevenLabs ${elRes.status}: ${errBody}`)
+            return new Response(JSON.stringify({ error: 'TTS API error' }), { status: 502, headers })
+          }
+
+          const audioBuffer = await elRes.arrayBuffer()
+
+          // Save to disk cache
+          await Bun.write(cachePath, audioBuffer)
+
+          return new Response(audioBuffer, { headers: audioHeaders })
+        } catch {
+          return new Response(JSON.stringify({ error: 'TTS request failed' }), { status: 502, headers })
+        }
       }
     }
 
