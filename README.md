@@ -58,6 +58,14 @@ The app uses a simple PIN system to separate families or classrooms sharing the 
 - Audio pronunciations for every word
 - Definitions displayed during Learn mode
 
+### ElevenLabs Text-to-Speech (Optional)
+
+- High-quality AI voice for word pronunciation and letter-by-letter spelling
+- Pre-generated static letter audio files (A-Z + "capital") included in the project -- no API calls needed for letters
+- Word audio is fetched from ElevenLabs once per unique word and cached permanently on disk (`tts-cache/`)
+- Falls back to Merriam-Webster audio and browser speech synthesis if ElevenLabs is not configured
+- Server-side proxy keeps the API key secret -- never exposed to the browser
+
 ### Additional Features
 
 - 8 custom color themes
@@ -131,6 +139,15 @@ The app uses a simple PIN system to separate families or classrooms sharing the 
    - Learner's Dictionary
 
    Also set `ADMIN_PIN` to a 6-10 character alphanumeric PIN for parent/admin access (default: `123456`).
+
+   **Optional:** To enable ElevenLabs TTS, add your API key and voice ID:
+
+   ```
+   ELEVENLABS_API_KEY=your-elevenlabs-api-key-here
+   ELEVENLABS_VOICE_ID=your-elevenlabs-voice-id-here
+   ```
+
+   Sign up at [elevenlabs.io](https://elevenlabs.io) (requires a paid plan for API access to premade voices). If not configured, the app falls back to Merriam-Webster audio and browser speech synthesis.
 
 5. **Start the API server**
 
@@ -213,10 +230,11 @@ The built files will be in the `dist/` directory. Serve them with any static fil
 
 ```
 spelling-bee/
-  server.ts              # Bun API server (port 3001) — includes auth endpoints
+  server.ts              # Bun API server (port 3001) — includes auth and TTS proxy endpoints
   data.json              # Word lists and user profiles (gitignored)
   sessions.json          # Session history (gitignored)
   admin-pin.json         # Runtime admin PIN (gitignored)
+  tts-cache/             # Cached ElevenLabs word audio MP3s (gitignored)
   src/
     App.tsx              # Routes and app shell
     context/AppContext.tsx  # Global state (React Context + useReducer)
@@ -234,6 +252,7 @@ spelling-bee/
     types/               # TypeScript type definitions
     utils/               # Achievements, mischievements, spaced repetition
   public/
+    audio/letters/       # Pre-generated ElevenLabs letter audio (a-z + capital)
     manifest.json        # PWA manifest
 ```
 
@@ -249,6 +268,7 @@ spelling-bee/
 | Animation | [Motion](https://motion.dev) (Framer Motion) |
 | Routing | [React Router 7](https://reactrouter.com) |
 | Dictionary | [Merriam-Webster API](https://dictionaryapi.com) |
+| TTS | [ElevenLabs](https://elevenlabs.io) (optional) |
 | Data | JSON file storage via Bun server |
 
 ## License
